@@ -388,7 +388,8 @@
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GAC Counter Planner</title><style>' + CSS + '</style></head><body><main>'
       + '<h1>GAC Counter Planner</h1><p class="lead">Predicted from the most recent ' + c.squadSize + 'v' + c.squadSize + ' week. Kyber battles, live datacron sets only.</p>'
       + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
-      + (c.auto ? ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)' : '') + '</div>'
+      + (c.auto ? (c.auto.stale ? ' (no GAC week is live, so this is the last opponent you faced: ' + esc(c.auto.season) + ', round ' + c.auto.round + ')'
+        : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '') + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads covered') + tile(solid, 'counters above the 75% safe bound') + tile(pct(spent / all, 0), 'of your unit power spent on offense') + tile(st.freeGLs.length, 'Galactic Legends kept free for defense') + '</div>'
       + '<h2>Offense: character squads</h2><div class="scroll">' + head + offRows(false) + '</tbody></table></div>'
       + '<h2>Offense: fleets</h2><div class="scroll">' + head + offRows(true) + '</tbody></table></div>' + dropped
@@ -493,6 +494,18 @@
     } catch (e) { return null; }
   };
 
+  // The opponent to use without asking: this round's opponent in a live week, otherwise the last opponent you faced
+  // (planned at the size of the next season, from that player's most recent week of that size).
+  G.pickAuto = async (me, opts = {}) => {
+    const live = await G.autoOpponent(me, opts);
+    if (live) return live;
+    const cur = await G.currentOpponents(me);
+    const last = cur && cur.opps.length ? cur.opps[cur.opps.length - 1] : null;
+    if (!last) return null;
+    const det = await G.detectSquadSize();
+    return { name: last.name, ally: last.ally, guild: last.guild, round: last.round, size: det ? det.size : (+mem.get('size') || 3), season: 'Season ' + cur.season, stale: true };
+  };
+
   G.ask = async (opts = {}) => {
     const who = await G.identity();
     let me;
@@ -506,8 +519,8 @@
       if (!me) return;
     }
     const clean = s => String(s).replace(/[^0-9]/g, '');
-    if (!opts.manual) {  // a GAC week is on and your history shows who you face: no questions at all
-      const auto = await G.autoOpponent(clean(me), opts);
+    if (!opts.manual) {  // no questions: the current opponent, or failing that the last one you faced
+      const auto = await G.pickAuto(clean(me), opts);
       if (auto) { mem.set('me', clean(me)); return G.run({ me: clean(me), opp: auto.ally, squadSize: auto.size, auto }); }
     }
     const det = await G.detectSquadSize();
