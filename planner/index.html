@@ -21,7 +21,8 @@ code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;
 <h2>Set it up once</h2>
 <ol>
 <li>Sign in at swgoh.gg.</li>
-<li>Drag this button onto your bookmarks bar: <a class="btn" id="bm" href="#">GAC Planner</a></li>
+<li>Drag this button onto your bookmarks bar (do not click it here): <a class="btn" id="bm" href="#">GAC Planner</a>
+<div class="card" id="dragnote" hidden><b>Drag it, do not click it.</b> Hold the mouse button on it, move it up to your bookmarks bar, and let go. If your bookmarks bar is hidden, press Ctrl+Shift+B first. Then open swgoh.gg and click the bookmark there.</div></li>
 </ol>
 
 <h2>Use it</h2>
@@ -52,7 +53,11 @@ code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;
    +"var me=prompt('Your ally code');if(!me)return;var opp=prompt('Opponent ally code');if(!opp)return;var sz=prompt('Squad size: 3 for 3v3, 5 for 5v5','3');if(!sz)return;"
    +"if(!window.GAC){await new Promise(function(ok,no){var s=document.createElement('script');s.src='"+SRC+"?'+Date.now();s.onload=ok;s.onerror=no;document.head.append(s)})}"
    +"GAC.run({me:me.replace(/\\D/g,''),opp:opp.replace(/\\D/g,''),squadSize:+sz})})()";
-  document.getElementById('bm').href='javascript:'+body;
+  var bm=document.getElementById('bm');
+  bm.href='javascript:'+body;
+  bm.addEventListener('click',function(e){  // clicking here does nothing useful: it has to be dragged to the bookmarks bar
+    e.preventDefault();
+    document.getElementById('dragnote').hidden=false;});
   var ta=document.getElementById('code');ta.value=body;
   document.getElementById('copy').onclick=function(){
     var ok=function(){document.getElementById('copied').textContent='Copied'};
