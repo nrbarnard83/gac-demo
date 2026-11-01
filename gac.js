@@ -422,6 +422,28 @@
     get: k => { try { return localStorage.getItem('gac.' + k) || ''; } catch (e) { return ''; } },
     set: (k, v) => { try { localStorage.setItem('gac.' + k, v); } catch (e) { /* private browsing: just do not remember */ } },
   };
+  // Who you are facing: your most recent GAC week from the bracket, with the opponent of each round when it is known.
+  G.currentOpponents = async me => {
+    try {
+      const brs = await dataOf('/api/v2/gac/brackets/recent/' + me + '/');
+      const b = (Array.isArray(brs) ? brs : []).slice().sort((x, y) => Date.parse(y.startTime + 'Z') - Date.parse(x.startTime + 'Z'))[0];
+      if (!b) return null;
+      const byName = new Map(b.bracketPlayers.map(p => [p.playerName, p]));
+      const doc = await page('/p/' + me + '/gac-history/');
+      const found = new Map();
+      for (const a of doc.querySelectorAll('a[href*="gac-history/' + b.eventId + '/"]')) {
+        const m = a.getAttribute('href').match(/[/]([0-9])[/]$/);
+        const text = norm(a.textContent);
+        const name = [...byName.keys()].filter(n => text.startsWith(n)).sort((x, y) => y.length - x.length)[0];
+        if (m && name) found.set(+m[1], name);
+      }
+      const row = (p, round) => ({ round, name: p.playerName, ally: String(p.allyCode), guild: p.guildName || '', power: p.playerPower });
+      const opps = [...found.entries()].sort((x, y) => x[0] - y[0]).map(([round, name]) => row(byName.get(name), round));
+      const others = b.bracketPlayers.filter(p => String(p.allyCode) !== String(me) && !p.playerIsFake && !opps.some(o => o.ally === String(p.allyCode))).map(p => row(p, 0));
+      return { season: b.seasonNumber, week: b.weekNumber, startTime: b.startTime, ageDays: (Date.now() - Date.parse(b.startTime + 'Z')) / 864e5, opps, others };
+    } catch (e) { return null; }
+  };
+
   G.ask = async () => {
     const who = await G.identity();
     let me;
@@ -434,13 +456,25 @@
       me = prompt('Your ally code (could not read it from your login)', mem.get('me'));
       if (!me) return;
     }
-    const opp = prompt('Opponent ally code', mem.get('opp'));
+    const clean = s => String(s).replace(/[^0-9]/g, '');
+    let opp = '';
+    const cur = await G.currentOpponents(clean(me));
+    const list = cur ? cur.opps.concat(cur.others) : [];
+    if (list.length) {
+      const age = cur.ageDays < 1 ? 'today' : Math.round(cur.ageDays) + ' days ago';
+      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ', in your bracket'));
+      const pick = prompt('Season ' + cur.season + ' week ' + cur.week + ' (started ' + age + ')\nWho do you want to plan against? Type a number, or an ally code.\n\n' + lines.join('\n'), '1');
+      if (pick === null) return;
+      const n = +pick;
+      opp = n >= 1 && n <= list.length && String(n) === pick.trim() ? list[n - 1].ally : clean(pick);
+    } else {
+      opp = clean(prompt('Opponent ally code', mem.get('opp')) || '');
+    }
     if (!opp) return;
     const size = prompt('Squad size: 3 for 3v3, 5 for 5v5', mem.get('size') || '3');
     if (!size) return;
-    const clean = s => String(s).replace(/[^0-9]/g, '');
-    mem.set('me', clean(me)); mem.set('opp', clean(opp)); mem.set('size', String(+size));
-    return G.run({ me: clean(me), opp: clean(opp), squadSize: +size });
+    mem.set('me', clean(me)); mem.set('opp', opp); mem.set('size', String(+size));
+    return G.run({ me: clean(me), opp, squadSize: +size });
   };
 
   G.run = async cfg => {
