@@ -12,61 +12,58 @@
   const META_SHIPS = ['CAPITALPROFUNDITY', 'CAPITALEXECUTOR', 'CAPITALLEVIATHAN'];
   const SUPPORT = 'https://ko-fi.com/croder';  // tip jar link; the Support button stays hidden if this is empty
 
-  // ---- Datacron facts. Measured in GAC Insight (Kyber, live set 35 perks), not guessed: each recipe was compared with the same
-  // squad run with no cron. `base` is the rate without the cron, `top` the rate with the ideal perks, `n` the battles behind `top`.
-  // For a defense the rate is how often attackers win (lower is better); for an offense it is your own win rate.
-  // `perks` lists each perk with a rough gain in percentage points, used to pick the best of your crons; `best` is the ideal combination.
-  // Refresh this block weekly. Measured at 5v5; 3v3 needs a week of Season 85 data before it can be re-checked.
+  // ---- Datacron facts. The block between the markers is generated from gac/cron_targets.json (guides propose, Insight decides).
+  // `base` is the rate without the cron, `top` the rate with the best recipe, `n` its battles, `size` the squad size it was measured at.
+  // For a defense the rate is how often attackers win (lower is better); for an offense it is your own win rate. `perks` carry a rough
+  // gain in points, used to pick the best of your crons; `best` is the ideal combination; `early` means a small sample; `src: guides`
+  // means recommended by the community guides but not yet measured.
+  // BEGIN GENERATED FACTS (from gac/cron_targets.json by gac/cron_tools.py gen-facts; edit that file, not this block)
   const FACTS_DATE = '2026-11-01';
-  const P_DS = 'datacron_alignment_generic_034', P_UFU = 'datacron_faction_ufu_001', P_SHIN = 'datacron_character_shinhati_001';
-  const P_LS25 = 'datacron_alignment_generic_021', P_MAL = 'datacron_character_taronmalicos_002';
-  // Set 36 perks, named as swgoh4.life and ahnaldt101 name them and matched to the game's own perk list. Their recipes below are
-  // from those guides only (src: 'guides') until Insight has been used to measure them.
-  const P_DOUBT = 'datacron_alignment_dark_001', P_DSDOT = 'datacron_alignment_generic_020', P_LS50 = 'datacron_alignment_light_001';
-  const P_JEDI100 = 'datacron_faction_generic_025', P_BHPAY = 'datacron_faction_bountyhunter_004', P_BH10 = 'datacron_faction_generic_007';
-  const P_KRR = 'datacron_character_generic_048', P_IG90 = 'datacron_character_ig90_002', P_BOBA = 'datacron_character_bobafettscion_002';
-  const P_LEIA = 'datacron_character_jeditrainingleia_001', P_ANAKIN = 'datacron_character_generic_032', P_GKEN = 'datacron_character_generic_003';
   const PERKS = {
-    [P_DS]: 'Dark Side L3 "Buffs Assist"', [P_UFU]: 'Unaligned Force User L6 "Def. Stacking"', [P_SHIN]: 'Shin Hati L9',
-    [P_LS25]: 'Light Side L3 "+25% turn meter"', [P_MAL]: 'Taron Malicos L9',
-    [P_DOUBT]: 'Dark Side L3 "Doubt"', [P_DSDOT]: 'Dark Side L3 "Prot. Up on DoT"', [P_LS50]: 'Light Side L3 "50% Prot. Up"',
-    [P_JEDI100]: 'Jedi L6 "100% DMG at Full H/P"', [P_BHPAY]: 'Bounty Hunter L6 "Payout at 0 Prot."', [P_BH10]: 'Bounty Hunter L6 "10% DMG on debuff"',
-    [P_KRR]: 'Krrsantan L9', [P_IG90]: 'IG-90 L9', [P_BOBA]: 'Boba Fett (Scion of Jango) L9', [P_LEIA]: 'Leia (Jedi Training) L9',
-    [P_ANAKIN]: 'Jedi Knight Anakin L9', [P_GKEN]: 'General Kenobi L9',
+    "datacron_character_generic_032": "Jedi Knight Anakin L9",
+    "datacron_faction_bountyhunter_004": "Bounty Hunter L6 \"Payout at 0 Prot.\"",
+    "datacron_character_bobafettscion_002": "Boba Fett (Scion of Jango) L9",
+    "datacron_alignment_dark_001": "Dark Side L3 \"Doubt\"",
+    "datacron_alignment_generic_034": "Dark Side L3 \"Buffs Assist\"",
+    "datacron_alignment_generic_020": "Dark Side L3 \"Prot. Up on DoT\"",
+    "datacron_character_generic_003": "General Kenobi L9",
+    "datacron_character_ig90_002": "IG-90 L9",
+    "datacron_faction_generic_025": "Jedi L6 \"100% DMG at Full H/P\"",
+    "datacron_character_generic_048": "Krrsantan L9",
+    "datacron_character_jeditrainingleia_001": "Leia (Jedi Training) L9",
+    "datacron_alignment_generic_021": "Light Side L3 \"+25% turn meter\"",
+    "datacron_alignment_light_001": "Light Side L3 \"50% Prot. Up\"",
+    "datacron_character_taronmalicos_002": "Taron Malicos L9",
+    "datacron_character_shinhati_001": "Shin Hati L9",
+    "datacron_faction_ufu_001": "Unaligned Force User L6 \"Def. Stacking\"",
+    "datacron_faction_generic_032": "Unaligned Force User L6 \"Off. on Debuff Expiry\"",
   };
-  // "Off. on Debuff Expiry": the Unaligned Force User perk the guides give Starkiller and Baylan. About as good as Def. Stacking for Baylan.
-  const P_UFUOFF = 'datacron_faction_generic_032';
-  PERKS[P_UFUOFF] = 'Unaligned Force User L6 "Off. on Debuff Expiry"';
-  const GUIDES = 'ahnaldt101.com and swgoh4.life';
   const FACTS = [
-    { side: 'def', lead: 'BAYLANSKOLL', units: ['SHINHATI'], base: 0.488, top: 0.264, n: 7735, best: [P_SHIN, P_DS, P_UFU],
-      perks: [{ id: P_SHIN, gain: 19 }, { id: P_DS, gain: 18 }, { id: P_UFU, gain: 17 }, { id: P_UFUOFF, gain: 15 }] },
-    // Set 36 only has a few weeks of data. Jabba is the one set 36 recipe with enough battles to show a clear lift (`early`: small sample).
-    { side: 'def', lead: 'JABBATHEHUTT', early: true, base: 0.850, top: 0.560, n: 166, best: [P_KRR, P_DOUBT],
-      perks: [{ id: P_KRR, gain: 29 }, { id: P_DOUBT, gain: 21.6 }] },
-    { side: 'def', lead: 'THIRDSISTER', base: 0.759, top: 0.569, n: 6069, best: [P_DS, P_UFU],
-      perks: [{ id: P_DS, gain: 11.5 }, { id: P_UFU, gain: 7.5 }] },
-    { side: 'def', lead: 'GREATMOTHERS', base: 0.784, top: 0.680, n: 29392, best: [P_DS],
-      perks: [{ id: P_DS, gain: 10.4 }, { id: P_UFU, gain: 8.6 }] },
-    { side: 'def', lead: 'STRANGER', none: true, note: 'crons made no measurable difference to this defense' },
-    { side: 'off', lead: 'DOCTORAPHRA', base: 0.844, top: 0.900, n: 9484, best: [P_DS],
-      perks: [{ id: P_DS, gain: 5.6 }, { id: P_UFU, gain: 3.6 }] },
-    { side: 'off', lead: 'CEREJUNDA', units: ['TARONMALICOS'], base: 0.905, top: 0.955, n: 13415, best: [P_MAL, P_UFU],
-      perks: [{ id: P_MAL, gain: 2.2 }, { id: P_UFU, gain: 2.8 }] },
-    { side: 'off', lead: 'STRANGER', base: 0.905, top: 0.927, n: 18084, best: [P_DS],
-      perks: [{ id: P_DS, gain: 2.2 }, { id: P_UFU, gain: 2.0 }] },
-    // Recommended by the community guides, not yet measured in Insight (no rates shown). Each perk counts for little when picking
-    // crons, so a measured recipe always wins a cron over one of these.
-    ...[
-      { lead: 'GRANDMASTERLUKE', units: ['LEIAJEDITRAINING'], best: [P_LS50, P_JEDI100, P_LEIA] },
-      { lead: 'QUEENAMIDALA', units: ['ANAKINKNIGHT'], best: [P_LS50, P_JEDI100, P_ANAKIN] },
-      { lead: 'JEDIMASTERKENOBI', units: ['GENERALKENOBI'], best: [P_LS50, P_JEDI100, P_GKEN] },
-      { lead: 'BOBAFETTSCION', best: [P_DOUBT, P_BHPAY, P_BOBA] },
-      { lead: 'LORDVADER', best: [P_DSDOT] },
-    ].flatMap(g => ['def', 'off'].map(side => Object.assign({ side, src: 'guides', perks: g.best.map(id => ({ id, gain: 1 })) }, g))),
-    { side: 'def', lead: 'DOCTORAPHRA', src: 'guides', best: [P_DOUBT, P_BHPAY, P_IG90], perks: [P_DOUBT, P_BHPAY, P_IG90].map(id => ({ id, gain: 1 })) },
-    ...['SUPREMELEADERKYLOREN', 'GLLEIA', 'DARTHTRAYA', 'JEDIMASTERKENOBI', 'GLAHSOKATANO'].map(lead => ({ side: 'off', lead, none: true, note: 'crons made no measurable difference to this attack' })),
+    {"side": "def", "lead": "BAYLANSKOLL", "units": ["SHINHATI"], "size": 5, "base": 0.488, "top": 0.264, "n": 7735, "best": ["datacron_alignment_generic_034", "datacron_character_shinhati_001", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 17.8}, {"id": "datacron_character_shinhati_001", "gain": 18.9}, {"id": "datacron_faction_ufu_001", "gain": 17.5}, {"id": "datacron_faction_generic_032", "gain": 9.6}]},
+    {"side": "def", "lead": "THIRDSISTER", "size": 5, "base": 0.759, "top": 0.569, "n": 6069, "best": ["datacron_alignment_generic_034", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 11.5}, {"id": "datacron_faction_ufu_001", "gain": 9.5}]},
+    {"side": "def", "lead": "GREATMOTHERS", "size": 5, "base": 0.784, "top": 0.68, "n": 29392, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 10.4}, {"id": "datacron_faction_ufu_001", "gain": 8.6}]},
+    {"side": "def", "lead": "STRANGER", "size": 5, "none": true, "note": "crons made no measurable difference to this defense"},
+    {"side": "def", "lead": "GLREY", "size": 5, "base": 0.848, "top": 0.543, "n": 880, "best": ["datacron_faction_ufu_001"], "early": true, "perks": [{"id": "datacron_faction_ufu_001", "gain": 30.5}, {"id": "datacron_alignment_generic_021", "gain": 0.3}]},
+    {"side": "def", "lead": "JABBATHEHUTT", "size": 5, "base": 0.85, "top": 0.56, "n": 166, "best": ["datacron_character_generic_048"], "early": true, "perks": [{"id": "datacron_character_generic_048", "gain": 29.0}, {"id": "datacron_alignment_dark_001", "gain": 21.6}]},
+    {"side": "def", "lead": "GRANDMASTERLUKE", "units": ["LEIAJEDITRAINING"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_jeditrainingleia_001"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_jeditrainingleia_001", "gain": 1}]},
+    {"side": "def", "lead": "LORDVADER", "src": "guides", "best": ["datacron_alignment_generic_020"], "perks": [{"id": "datacron_alignment_generic_020", "gain": 1}]},
+    {"side": "def", "lead": "DOCTORAPHRA", "src": "guides", "best": ["datacron_alignment_dark_001", "datacron_faction_bountyhunter_004", "datacron_character_ig90_002"], "perks": [{"id": "datacron_alignment_dark_001", "gain": 1}, {"id": "datacron_faction_bountyhunter_004", "gain": 1}, {"id": "datacron_character_ig90_002", "gain": 1}]},
+    {"side": "def", "lead": "BOBAFETTSCION", "src": "guides", "best": ["datacron_alignment_dark_001", "datacron_faction_bountyhunter_004", "datacron_character_bobafettscion_002"], "perks": [{"id": "datacron_alignment_dark_001", "gain": 1}, {"id": "datacron_faction_bountyhunter_004", "gain": 1}, {"id": "datacron_character_bobafettscion_002", "gain": 1}]},
+    {"side": "def", "lead": "JEDIMASTERKENOBI", "units": ["GENERALKENOBI"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_003"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_003", "gain": 1}]},
+    {"side": "def", "lead": "QUEENAMIDALA", "units": ["ANAKINKNIGHT"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_032"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_032", "gain": 1}]},
+    {"side": "off", "lead": "DOCTORAPHRA", "size": 5, "base": 0.844, "top": 0.9, "n": 9484, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 5.6}, {"id": "datacron_faction_ufu_001", "gain": 3.6}]},
+    {"side": "off", "lead": "CEREJUNDA", "units": ["TARONMALICOS"], "size": 5, "base": 0.905, "top": 0.955, "n": 13415, "best": ["datacron_character_taronmalicos_002", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_character_taronmalicos_002", "gain": 2.2}, {"id": "datacron_faction_ufu_001", "gain": 2.5}]},
+    {"side": "off", "lead": "STRANGER", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "SATELESHAN", "size": 5, "none": true, "note": "the cron perks tested made this attack worse (early data)"},
+    {"side": "off", "lead": "QUEENAMIDALA", "units": ["ANAKINKNIGHT"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_032"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_032", "gain": 1}]},
+    {"side": "off", "lead": "SUPREMELEADERKYLOREN", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "GLLEIA", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "DARTHTRAYA", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "JEDIMASTERKENOBI", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "GLAHSOKATANO", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
   ];
+  // END GENERATED FACTS
+  const GUIDES = 'ahnaldt101.com and swgoh4.life';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const tnow = () => performance.now();
   const norm = s => [...s].map(ch => (ch.trim() ? ch : ' ')).join('').split(' ').filter(Boolean).join(' ');
@@ -346,7 +343,7 @@
   const perkIds = cron => cron.tiers.filter((t, i) => t.ability_id && i + 1 <= cron.tier).map(t => t.ability_id);
   // The tested recipe for a squad, if any: same lead, plus any units the recipe needs. The most specific one wins.
   const factFor = (side, units) => FACTS.filter(f => f.side === side && units[0] === f.lead && (f.units || []).every(u => units.includes(u)))
-    .sort((a, b) => (b.units || []).length - (a.units || []).length)[0] || null;
+    .sort((a, b) => ((b.units || []).length - (a.units || []).length) || ((b.size === G.cfg.squadSize) - (a.size === G.cfg.squadSize)))[0] || null;  // most specific first, then measured at this squad size
 
   // One cron per squad, offense and defense together, so the crons with the biggest measured gain go where they matter.
   // Squads with a recipe score by the gain of the perks the cron has; squads without one fall back to faction/alignment fit.
@@ -574,7 +571,7 @@
       const rate = f.src === 'guides' ? '' : (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0);
       const proof = f.src === 'guides'
         ? '<div class="meta">Ideal per ' + GUIDES + ': ' + esc(ideal) + '. Not yet measured in Insight.</div>'
-        : '<div class="meta">Ideal: ' + esc(ideal) + '. ' + rate + ' in Kyber (' + f.n.toLocaleString() + ' battles' + (f.early ? ', early data' : '') + (c.squadSize === 5 ? '' : '; measured at 5v5, not yet at 3v3') + ').</div>';
+        : '<div class="meta">Ideal: ' + esc(ideal) + '. ' + rate + ' in Kyber (' + f.n.toLocaleString() + ' battles' + (f.early ? ', early data' : '') + (f.size && f.size !== c.squadSize ? '; measured at ' + f.size + 'v' + f.size + ', not yet at ' + c.squadSize + 'v' + c.squadSize : '') + ').</div>';
       if (!r.cron || r.gain <= 0) return '<b>No cron of yours has these perks</b>' + proof;
       const have = f.perks.filter(p => r.ids.includes(p.id)).map(p => perkName(p.id)), miss = f.best.filter(id => !r.ids.includes(id)).map(perkName);
       return '<b>Use set ' + r.cron.set_id + ', tier ' + r.cron.tier + '</b><div class="meta">Has ' + esc(have.join(' + ')) + (miss.length ? '. Missing ' + esc(miss.join(' + ')) : '') + '</div>' + proof;
@@ -617,7 +614,7 @@
         + st.farm.map(w => { const f = w.fact, side = f.side;
           return '<li><b>' + esc(f.best.map(perkName).join(' + ')) + '</b> for ' + esc(w.leads.map(nm).join(', ')) + ' <span class="muted">('
             + (f.src === 'guides' ? 'recommended by ' + GUIDES + ', not yet measured' : (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0) + ' in Kyber' + (f.early ? ', early data' : '')) + ')</span></li>'; }).join('') + '</ul>' : '')
-      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. Cron recipes were measured in Kyber 5v5 on ' + FACTS_DATE + '. '
+      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. Cron recipes were last measured in Kyber on ' + FACTS_DATE + '. '
       + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests' + (G.cached ? ' (' + G.cached + ' answers reused from the last 12 hours)' : '') + '. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
 
