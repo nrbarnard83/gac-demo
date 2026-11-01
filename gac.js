@@ -6,6 +6,7 @@
   'use strict';
   const G = (window.GAC = { v: 1, cfg: null, st: {}, log: [] });
   const SOLID = 0.75, GL_BONUS = 20000;
+  const PROTECT_COST = 150000;  // spending a unit that a top meta defense needs counts like this much extra power on offense
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const tnow = () => performance.now();
   const norm = s => [...s].map(ch => (ch.trim() ? ch : ' ')).join('').split(' ').filter(Boolean).join(' ');
@@ -22,7 +23,7 @@
 
   G.setup = cfg => {
     G.cfg = Object.assign({ minRelic: 5, minStars: 1, z: 1.28, league: 'KYBER', squadSize: 3, minLive: 500, dChars: 15, dFleets: 3,
-      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minPct: 0.6, minBattles: 5, metaLeads: 40 }, cfg);
+      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minPct: 0.6, minBattles: 5, metaLeads: 40, protectTop: 20 }, cfg);
     G.st = {}; G.log = [];
     return G.cfg;
   };
@@ -251,6 +252,12 @@
     const c = G.cfg, st = G.st;
     const board = st.board.filter(b => !((st.counters[b.squad[0]] || {}).total < c.minLive));
     st.dropped = st.board.filter(b => (st.counters[b.squad[0]] || {}).total < c.minLive).map(b => ({ squad: b.squad, battles: st.counters[b.squad[0]].total }));
+    // units the season's best defenses need: spend them on offense only when nothing else gives a solid counter
+    st.protect = new Set();
+    if (st.metaSquads && st.metaSquads.length) {
+      const top = st.metaSquads.filter(m => m.units.every(st.can)).sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z)).slice(0, c.protectTop);
+      top.forEach(m => m.units.forEach(u => st.protect.add(u)));
+    }
     st.cands = new Map();
     for (const b of board) {
       const lead = b.squad[0], rows = (st.counters[lead] || {}).rows || [];
@@ -281,7 +288,7 @@
         if (seen.has(key) || !o.att.every(st.canOff)) continue;
         seen.add(key);
         const lb = wilson(o.p, o.n, c.z);
-        out.push({ att: o.att, n: o.n, p: o.p, lb, cost: o.att.reduce((s, u) => s + st.value(u), 0), tier: lb >= SOLID ? 'solid' : (o.p >= SOLID ? 'promising' : 'marginal') });
+        out.push({ att: o.att, n: o.n, p: o.p, lb, cost: o.att.reduce((s, u) => s + st.value(u) + (st.protect.has(u) ? PROTECT_COST : 0), 0), tier: lb >= SOLID ? 'solid' : (o.p >= SOLID ? 'promising' : 'marginal') });
       }
       out.sort((x, y) => y.lb - x.lb);
       let keep;
@@ -385,6 +392,12 @@
     st.defChars = dc.chosen; st.defFleets = df.chosen;
     st.dcDef = assignCrons(dc.chosen.map(x => x.units), left, st);
     st.freeGLs = st.free.filter(b => (st.meta[b] || {}).gl).map(st.nm).sort();
+    // the season's best-holding defenses you can field with what offense left, and whether they made your plan
+    const kyber = new Map((st.charOpts || []).map(o => [[...o.units].sort().join('|'), o]));
+    const chosen = new Set(dc.chosen.map(x => [...x.units].sort().join('|')));
+    st.metaOffer = (st.metaSquads || []).filter(m => m.units.every(u => st.can(u) && !st.used.has(u)))
+      .sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z)).slice(0, 12)
+      .map(m => { const k = [...m.units].sort().join('|'), ky = kyber.get(k); return { units: m.units, hold: m.hold, seen: m.seen, kyberHold: ky ? 1 - ky.atkWin : null, kyberN: ky ? ky.n : 0, inPlan: chosen.has(k) }; });
     return { chars: dc.chosen.length, fleets: df.chosen.length };
   };
 
@@ -425,6 +438,8 @@
       + '<h2>Offense: fleets</h2><div class="scroll">' + head + offRows(true) + '</tbody></table></div>' + dropped
       + '<h2>Your defense, from what is left</h2><div class="note">Galactic Legends still free: <b>' + esc(st.freeGLs.join(', ') || 'none') + '</b>. "Hold" is how often attackers lose to that squad in Kyber.</div>'
       + '<div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody>' + defRows + '</tbody></table></div>'
+      + (st.metaOffer && st.metaOffer.length ? '<h2>Meta defenses you can field</h2><p class="muted">The season\'s best-holding squads (all leagues) that you can build from what offense left. Offense avoids their units where it can.</p><div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Season hold</th><th class="num">Placed</th><th class="num">Kyber hold</th><th>In your plan</th></tr></thead><tbody>'
+        + st.metaOffer.map(m => '<tr><td><div class="squad">' + sq(m.units) + '</div></td><td class="num">' + pct(m.hold, 0) + '</td><td class="num">' + Math.round(m.seen).toLocaleString() + '</td><td class="num">' + (m.kyberHold == null ? '<span class="muted">n/a</span>' : pct(m.kyberHold, 0)) + '</td><td>' + (m.inPlan ? 'Yes' : '<span class="muted">No</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '')
       + '<h2>Defense fleets</h2><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
       + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. '
       + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
