@@ -5,9 +5,41 @@
 (() => {
   'use strict';
   const G = (window.GAC = { v: 1, cfg: null, st: {}, log: [] });
-  const SOLID = 0.75, GL_BONUS = 20000;
+  // A counter qualifies when its win rate is at least 75% AND its safe bound (the cautious win rate after allowing for a small
+  // sample) is at least 60%. It is Strong when the safe bound is 75% or better too, Acceptable otherwise. Nothing else is offered.
+  const FLAT = 0.75, BOUND = 0.60, STRONG = 0.75;
+  // Capital ships that anchor the best fleet defenses: kept for defense unless nothing else counters the opposing fleet.
+  const META_SHIPS = ['CAPITALPROFUNDITY', 'CAPITALEXECUTOR', 'CAPITALLEVIATHAN'];
   const SUPPORT = 'https://ko-fi.com/croder';  // tip jar link; the Support button stays hidden if this is empty
-  const PROTECT_COST = 150000;  // spending a unit that a top meta defense needs counts like this much extra power on offense
+
+  // ---- Datacron facts. Measured in GAC Insight (Kyber, live set 35 perks), not guessed: each recipe was compared with the same
+  // squad run with no cron. `base` is the rate without the cron, `top` the rate with the ideal perks, `n` the battles behind `top`.
+  // For a defense the rate is how often attackers win (lower is better); for an offense it is your own win rate.
+  // `perks` lists each perk with a rough gain in percentage points, used to pick the best of your crons; `best` is the ideal combination.
+  // Refresh this block weekly. Measured at 5v5; 3v3 needs a week of Season 85 data before it can be re-checked.
+  const FACTS_DATE = '2026-11-01';
+  const P_DS = 'datacron_alignment_generic_034', P_UFU = 'datacron_faction_ufu_001', P_SHIN = 'datacron_character_shinhati_001';
+  const P_LS25 = 'datacron_alignment_generic_021', P_MAL = 'datacron_character_taronmalicos_002';
+  const PERKS = {
+    [P_DS]: 'Dark Side L3 "assist if buffed"', [P_UFU]: 'Unaligned Force User L6', [P_SHIN]: 'Shin Hati L9',
+    [P_LS25]: 'Light Side L3 "+25% turn meter"', [P_MAL]: 'Taron Malicos L9',
+  };
+  const FACTS = [
+    { side: 'def', lead: 'BAYLANSKOLL', units: ['SHINHATI'], base: 0.488, top: 0.264, n: 7735, best: [P_SHIN, P_DS, P_UFU],
+      perks: [{ id: P_SHIN, gain: 19 }, { id: P_DS, gain: 18 }, { id: P_UFU, gain: 17 }] },
+    { side: 'def', lead: 'THIRDSISTER', base: 0.759, top: 0.569, n: 6069, best: [P_DS, P_UFU],
+      perks: [{ id: P_DS, gain: 11.5 }, { id: P_UFU, gain: 7.5 }] },
+    { side: 'def', lead: 'GREATMOTHERS', base: 0.784, top: 0.680, n: 29392, best: [P_DS],
+      perks: [{ id: P_DS, gain: 10.4 }, { id: P_UFU, gain: 8.6 }] },
+    { side: 'def', lead: 'STRANGER', none: true, note: 'crons made no measurable difference to this defense' },
+    { side: 'off', lead: 'DOCTORAPHRA', base: 0.844, top: 0.900, n: 9484, best: [P_DS],
+      perks: [{ id: P_DS, gain: 5.6 }, { id: P_UFU, gain: 3.6 }] },
+    { side: 'off', lead: 'CEREJUNDA', units: ['TARONMALICOS'], base: 0.905, top: 0.955, n: 13415, best: [P_MAL, P_UFU],
+      perks: [{ id: P_MAL, gain: 2.2 }, { id: P_UFU, gain: 2.8 }] },
+    { side: 'off', lead: 'STRANGER', base: 0.905, top: 0.927, n: 18084, best: [P_DS],
+      perks: [{ id: P_DS, gain: 2.2 }, { id: P_UFU, gain: 2.0 }] },
+    ...['SUPREMELEADERKYLOREN', 'GLLEIA', 'DARTHTRAYA', 'JEDIMASTERKENOBI', 'GLAHSOKATANO'].map(lead => ({ side: 'off', lead, none: true, note: 'crons made no measurable difference to this attack' })),
+  ];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const tnow = () => performance.now();
   const norm = s => [...s].map(ch => (ch.trim() ? ch : ' ')).join('').split(' ').filter(Boolean).join(' ');
@@ -58,8 +90,10 @@
   const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
 
   G.setup = cfg => {
-    G.cfg = Object.assign({ minRelic: 5, minStars: 1, z: 1.28, league: 'KYBER', squadSize: 3, minLive: 500, dChars: 15, dFleets: 3,
-      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minPct: 0.6, minBattles: 5, metaLeads: 40, protectTop: 20 }, cfg);
+    G.cfg = Object.assign({ minRelic: 5, minStars: 1, z: 1.28, league: 'KYBER', squadSize: 3, minLive: 500, dFleets: 3,
+      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minBattles: 5, metaLeads: 40, protectTop: 20 }, cfg);
+    // a defense is 15 character squads on a 3v3 board, 11 on a 5v5 board, and always 3 fleets
+    if (G.cfg.dChars == null) G.cfg.dChars = G.cfg.squadSize === 5 ? 11 : 15;
     G.st = {}; G.log = [];
     return G.cfg;
   };
@@ -80,7 +114,7 @@
     st.isFleet = b => st.isShip(b) && b.startsWith('CAPITAL');
     st.can = b => b in st.owned && (st.isShip(b) || (relicLevel(st.owned[b].relic_tier) ?? -1) >= c.minRelic);
     st.canOff = b => st.can(b) && !c.earmark.includes(b);
-    st.value = b => ((st.owned[b] && st.owned[b].power) || 0) + ((st.meta[b] || {}).gl ? GL_BONUS : 0);
+    st.value = b => (st.owned[b] && st.owned[b].power) || 0;  // only used to order the fallback defense candidates
     st.nm = b => st.names[b] || b;
     return { units: Object.keys(st.owned).length, crons: st.crons.length, liveSets: [...st.live] };
   };
@@ -97,7 +131,7 @@
       if (!side) continue;
       let dc = null;
       const d = side.querySelector('[data-player-datacron-tooltip-app]');
-      if (d) { try { const j = JSON.parse(d.getAttribute('data-player-datacron-tooltip-app')); dc = { set: j.set_id, tier: j.derived && j.derived.tier }; } catch (e) { /* ignore */ } }
+      if (d) { try { const j = JSON.parse(d.getAttribute('data-player-datacron-tooltip-app')); const tier = (j.derived && j.derived.tier) || 0; dc = { set: j.set_id, tier, perks: ((j.derived && j.derived.tiers) || []).map((t, i) => ({ id: t.ability_id, lvl: i + 1, name: t.derived && t.derived.scope_target_name })).filter(p => p.id && p.lvl <= tier) }; } catch (e) { /* ignore */ } }
       for (const L of side.querySelectorAll('[class~="gac-battle-portrait-layout"]')) {
         const lead = L.querySelector('[class*="gac-battle-portrait-layout__lead"] [data-unit-def-tooltip-app]');
         const ids = [...L.querySelectorAll('[data-unit-def-tooltip-app]')].map(u => u.getAttribute('data-unit-def-tooltip-app'));
@@ -134,12 +168,18 @@
         else if (b.units.length === c.squadSize) key = [b.lead, ...b.units.slice(1).sort()];
         else continue;
         const k = key.join('|');
-        const e = board.get(k) || { squad: key, rounds: new Set(), sets: {} };
+        const e = board.get(k) || { squad: key, rounds: new Set(), sets: {}, crons: {} };
         e.rounds.add(r.round);
-        if (b.dc) e.sets[b.dc.set] = (e.sets[b.dc.set] || 0) + 1;
+        if (b.dc) {
+          e.sets[b.dc.set] = (e.sets[b.dc.set] || 0) + 1;
+          const ck = b.dc.perks.map(p => p.id).join(','), cc = e.crons[ck] || { n: 0, perks: b.dc.perks };
+          cc.n++; e.crons[ck] = cc;
+        }
         board.set(k, e);
       }
-      st.board = [...board.values()].map(e => ({ squad: e.squad, seen: e.rounds.size, sets: Object.keys(e.sets).map(Number).sort((a, b) => a - b) }));
+      // the datacron perks they most often put on each squad, so you can see what you are facing
+      st.board = [...board.values()].map(e => ({ squad: e.squad, seen: e.rounds.size, sets: Object.keys(e.sets).map(Number).sort((a, b) => a - b),
+        perks: (Object.values(e.crons).sort((a, b) => b.n - a.n)[0] || { perks: [] }).perks }));
       return { owner: st.owner, event: ev, squads: st.board.length };
     }
     throw new Error('No recent ' + c.squadSize + 'v' + c.squadSize + ' week with data found for that opponent');
@@ -156,7 +196,7 @@
     say('Finding counters for ' + leads.length + ' defending leads');
     for (const lead of leads) {
       const d = await dataOf(insightUrl(lead, st.isFleet(lead), c));
-      st.counters[lead] = { total: d.totalCount, rows: d.battles.filter(b => b.count >= c.minBattles && b.percentage >= c.minPct)
+      st.counters[lead] = { total: d.totalCount, rows: d.battles.filter(b => b.count >= c.minBattles)
         .map(b => [b.attackLeadId, b.attackMemberIds, b.defenseMemberIds, b.count, b.percentage, b.attackReinforcementIds || [], b.defenseReinforcementIds || []]) };
       await sleep(80);
     }
@@ -275,134 +315,160 @@
     return [score + 0.05 * cron.tier / 9, why];
   };
 
-  const assignCrons = (squads, pool, st) => {
-    if (!squads.length || !pool.length) return squads.map(() => null);
-    const table = squads.map(u => pool.map(c => fit(u, c, st)));
-    const m = Math.max(pool.length, squads.length);
-    const cost = squads.map((_, i) => Array.from({ length: m }, (_, j) => (j < pool.length ? -table[i][j][0] : 0)));
-    return hungarian(cost).map((j, i) => (j < pool.length ? { cron: pool[j], why: table[i][j][1] } : null));
+  // The special perks a datacron has unlocked at its current tier.
+  const perkIds = cron => cron.tiers.filter((t, i) => t.ability_id && i + 1 <= cron.tier).map(t => t.ability_id);
+  // The tested recipe for a squad, if any: same lead, plus any units the recipe needs. The most specific one wins.
+  const factFor = (side, units) => FACTS.filter(f => f.side === side && units[0] === f.lead && (f.units || []).every(u => units.includes(u)))
+    .sort((a, b) => (b.units || []).length - (a.units || []).length)[0] || null;
+
+  // One cron per squad, offense and defense together, so the crons with the biggest measured gain go where they matter.
+  // Squads with a recipe score by the gain of the perks the cron has; squads without one fall back to faction/alignment fit.
+  const assignCrons = (entries, allCrons, st) => {
+    const pool = allCrons.filter(cr => cr.tier >= 1);  // a tier 0 cron has nothing unlocked
+    const facts = entries.map(e => factFor(e.side, e.units));
+    const out = entries.map((e, i) => (facts[i] && facts[i].none ? { none: true, fact: facts[i] } : null));
+    const live = entries.map((e, i) => i).filter(i => !out[i]);
+    live.forEach(i => { out[i] = { fact: facts[i], cron: null, why: [], ids: [], gain: 0 }; });
+    if (!live.length || !pool.length) return out;
+    const table = live.map(i => pool.map(cr => {
+      const ids = perkIds(cr), f = facts[i];
+      const gain = f ? f.perks.filter(p => ids.includes(p.id)).reduce((s, p) => s + p.gain, 0) : 0;
+      const [fs, why] = fit(entries[i].units, cr, st);
+      return { score: gain * 10 + fs, gain, why, ids };
+    }));
+    const m = Math.max(pool.length, live.length);
+    const cost = live.map((_, i) => Array.from({ length: m }, (_, j) => (j < pool.length ? -table[i][j].score : 0)));
+    hungarian(cost).forEach((j, k) => { if (j < pool.length) out[live[k]] = Object.assign({ fact: facts[live[k]], cron: pool[j] }, table[k][j]); });
+    return out;
   };
 
   // ---------------------------------------------------------------- plan the offense (and choose fleets together with defense)
+  // Only counters that qualify are ever offered (win rate 75%+ and safe bound 60%+). Character squads are planned in two passes:
+  // the first uses counters with no Galactic Legend, the second lets a GL cover only the squads nothing else could. Fleets prefer
+  // counters that leave the meta capital ships (Profundity, Executor, Leviathan) free for defense.
   G.planOffense = () => {
     const c = G.cfg, st = G.st;
     const board = st.board.filter(b => !((st.counters[b.squad[0]] || {}).total < c.minLive));
     st.dropped = st.board.filter(b => (st.counters[b.squad[0]] || {}).total < c.minLive).map(b => ({ squad: b.squad, battles: st.counters[b.squad[0]].total }));
-    // units the season's best defenses need: spend them on offense only when nothing else gives a solid counter
+    const isGl = u => !!(st.meta[u] || {}).gl;
+    // units the season's best defenses need: when counters are otherwise equal, offense leaves these alone
     st.protect = new Set();
     if (st.metaSquads && st.metaSquads.length) {
       const top = st.metaSquads.filter(m => m.units.every(st.can)).sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z)).slice(0, c.protectTop);
       top.forEach(m => m.units.forEach(u => st.protect.add(u)));
     }
-    st.cands = new Map();
-    for (const b of board) {
-      const lead = b.squad[0], rows = (st.counters[lead] || {}).rows || [];
-      let raw = [];
-      if (st.isFleet(lead)) {
-        const obs = new Set(b.squad), pooled = new Map();
-        for (const r of rows) {
-          const core = new Set([lead, ...r[2]]), dset = new Set([...core, ...r[6]]);
-          let w;
-          if ([...dset].every(x => obs.has(x))) w = dset.size / obs.size;
-          else if ([...core].every(x => obs.has(x))) w = 0.5 * core.size / obs.size;
-          else continue;
-          const k = [r[0], [...r[1]].sort().join(','), [...r[5]].sort().join(',')].join('|');
-          const e = pooled.get(k) || { att: [r[0], ...[...r[1]].sort(), ...[...r[5]].sort()], n: 0, wn: 0 };
-          e.n += w * r[3]; e.wn += w * r[3] * r[4];
-          pooled.set(k, e);
-        }
-        raw = [...pooled.values()].filter(e => e.n >= 5).map(e => ({ att: e.att, n: e.n, p: e.wn / e.n }));
-      } else {
-        const mem = b.squad.slice(1);
-        const exact = rows.filter(r => r[2].length === mem.length && r[2].every(x => mem.includes(x)));
-        const use = exact.length >= 3 ? exact : rows;
-        raw = use.map(r => ({ att: [r[0], ...r[1]], n: r[3], p: r[4] }));
-      }
-      const out = [], seen = new Set();
+    const build = (raw, via, skip) => {
+      const out = [], seen = new Set(skip || []);
       for (const o of raw) {
         const key = o.att.join('|');
         if (seen.has(key) || !o.att.every(st.canOff)) continue;
         seen.add(key);
         const lb = wilson(o.p, o.n, c.z);
-        out.push({ att: o.att, n: o.n, p: o.p, lb, cost: o.att.reduce((s, u) => s + st.value(u) + (st.protect.has(u) ? PROTECT_COST : 0), 0), tier: lb >= SOLID ? 'solid' : (o.p >= SOLID ? 'promising' : 'marginal') });
+        if (o.p < FLAT || lb < BOUND) continue;
+        out.push({ att: o.att, n: o.n, p: o.p, lb, via, tier: lb >= STRONG ? 'strong' : 'acceptable',
+          gl: o.att.filter(isGl).length, prot: o.att.filter(u => st.protect.has(u)).length, meta: o.att.filter(u => META_SHIPS.includes(u)).length });
       }
-      out.sort((x, y) => y.lb - x.lb);
-      let keep;
-      if (st.isFleet(lead)) keep = out.slice(0, 20);
-      else {
-        const cheap = out.filter(x => x.lb >= SOLID).sort((x, y) => x.cost - y.cost).slice(0, c.top);
-        keep = out.slice(0, c.top).concat(cheap.filter(x => !out.slice(0, c.top).includes(x)));
+      return out;
+    };
+    const agg = rs => {  // the same attackers against several defender lineups are one counter
+      const m = new Map();
+      for (const r of rs) {
+        const att = [r[0], ...[...r[1]].sort(), ...[...r[5]].sort()], k = att.join('|');
+        const e = m.get(k) || { att, n: 0, w: 0 };
+        e.n += r[3]; e.w += r[3] * r[4]; m.set(k, e);
+      }
+      return [...m.values()].filter(e => e.n >= c.minBattles).map(e => ({ att: e.att, n: e.n, p: e.w / e.n }));
+    };
+    // Counters found against the exact squad rank above counters found only against the same lead. A counter that was tried against
+    // the exact squad and fell short is never revived by pooling it with other lineups.
+    const loose = x => (x.via === 'exact squad' || x.via === 'exact lineup' ? 0 : 1);
+    const charRank = (x, y) => (loose(x) - loose(y)) || ((y.tier === 'strong') - (x.tier === 'strong')) || (x.prot - y.prot) || (y.lb - x.lb);
+    const fleetRank = (x, y) => (x.meta - y.meta) || (loose(x) - loose(y)) || ((y.tier === 'strong') - (x.tier === 'strong')) || (y.lb - x.lb);
+    const both = (exactRaw, allRaw, exactVia, looseVia) => build(exactRaw, exactVia).concat(build(allRaw, looseVia, exactRaw.map(o => o.att.join('|'))));
+    st.cands = new Map();
+    for (const b of board) {
+      const lead = b.squad[0], rows = (st.counters[lead] || {}).rows || [];
+      let out, keep;
+      if (st.isFleet(lead)) {
+        // the opponent's exact placed lineup first, then the same capital ship with any lineup
+        const obs = new Set(b.squad);
+        const exact = rows.filter(r => { const d = new Set([lead, ...r[2], ...r[6]]); return d.size === obs.size && [...d].every(x => obs.has(x)); });
+        out = both(agg(exact), agg(rows), 'exact lineup', 'same capital ship');
+        out.sort(fleetRank); keep = out.slice(0, 20);
+      } else {
+        const mem = b.squad.slice(1);
+        out = both(agg(rows.filter(r => r[2].length === mem.length && r[2].every(x => mem.includes(x)))), agg(rows), 'exact squad', 'lead only');
+        out.sort(charRank);
+        keep = out.filter(x => !x.gl).slice(0, c.top).concat(out.filter(x => x.gl).slice(0, c.top)).sort(charRank);
       }
       st.cands.set(b, keep);
     }
-    const dopts = (st.fleetOpts || []);
+    const dopts = st.fleetOpts || [];
     const must = c.earmark.filter(st.isFleet);
-    const solve = (group, fleetJoint) => {
-      const order = group.slice().sort((a, b) => (st.cands.get(a).length || 99) - (st.cands.get(b).length || 99));
-      const n = order.length, t0 = tnow();
-      const remSolid = [], remCov = [];
+    const cmp = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1; } return 0; };
+    let timedOut = false;
+    // fleet: [covered, fewer meta ships, fewer loose matches, defense strength, bound]
+    // characters: [covered, fewer GLs, fewer loose matches, more Strong, fewer protected units, bound]
+    const solve = (group, fleet, allowGL, blocked) => {
+      const lists = new Map(group.map(s => [s, st.cands.get(s).filter(x => (allowGL || !x.gl) && disjoint(blocked, x.att))]));
+      const order = group.slice().sort((a, b) => (lists.get(a).length || 99) - (lists.get(b).length || 99));
+      const n = order.length, t0 = tnow(), remCov = [], remStrong = [];
       for (let i = 0; i <= n; i++) {
-        remSolid.push(order.slice(i).filter(s => st.cands.get(s).some(x => x.lb >= SOLID)).length);
-        remCov.push(order.slice(i).filter(s => st.cands.get(s).length).length);
+        remCov.push(order.slice(i).filter(s => lists.get(s).length).length);
+        remStrong.push(order.slice(i).filter(s => lists.get(s).some(x => x.tier === 'strong')).length);
       }
-      let best = { key: [-1, -1, -Infinity, -Infinity], pick: new Map() };
-      const cmp = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1; } return 0; };
-      let timedOut = false;
-      const dfs = (i, used, pick, solid, cov, spend, lb) => {
+      let best = { key: fleet ? [-1, -Infinity, -Infinity, -Infinity, -Infinity] : [-1, -Infinity, -Infinity, -1, -Infinity, -Infinity], pick: new Map() };
+      const dfs = (i, used, pick, cov, gl, meta, lo, strong, prot, lb) => {
         if (tnow() - t0 > c.seconds * 1000) { timedOut = true; return; }
         if (i === n) {
           let key;
-          if (fleetJoint) {
-            if (cmp([solid, cov], best.key.slice(0, 2)) < 0) return;
-            const def = pickDefense(dopts, c.dFleets, used, st.can, c.z, c.minDefBattles, must).chosen.reduce((s, x) => s + x.lb, 0);
-            key = [solid, cov, def, lb];
-          } else key = [solid, cov, -spend, lb];
+          if (fleet) {
+            if (cmp([cov, -meta, -lo], best.key.slice(0, 3)) < 0) return;
+            const def = dopts.length ? pickDefense(dopts, c.dFleets, used, st.can, c.z, c.minDefBattles, must).chosen.reduce((s, x) => s + x.lb, 0) : 0;
+            key = [cov, -meta, -lo, def, lb];
+          } else key = [cov, -gl, -lo, strong, -prot, lb];
           if (cmp(key, best.key) > 0) best = { key, pick: new Map(pick) };
           return;
         }
-        if (!fleetJoint) {
-          const pot = [solid + remSolid[i], cov + remCov[i]], bk = best.key.slice(0, 2);
-          const r = cmp(pot, bk);
-          if (r < 0) return;
-          if (r === 0 && -spend < best.key[2]) return;
-        }
+        const opt = fleet ? [cov + remCov[i], -meta, -lo, Infinity, Infinity] : [cov + remCov[i], -gl, -lo, strong + remStrong[i], -prot, Infinity];
+        if (cmp(opt, best.key) < 0) return;
         const s = order[i];
-        const list = fleetJoint ? st.cands.get(s) : st.cands.get(s).slice().sort((a, b) => ((a.lb < SOLID) - (b.lb < SOLID)) || (a.cost - b.cost));
-        for (const cd of list) if (disjoint(used, cd.att)) {
+        for (const cd of lists.get(s)) if (disjoint(used, cd.att)) {
           const u2 = new Set(used); cd.att.forEach(x => u2.add(x));
           pick.set(s, cd);
-          dfs(i + 1, u2, pick, solid + (cd.lb >= SOLID ? 1 : 0), cov + 1, spend + cd.cost, lb + cd.lb);
+          dfs(i + 1, u2, pick, cov + 1, gl + cd.gl, meta + cd.meta, lo + loose(cd), strong + (cd.tier === 'strong' ? 1 : 0), prot + cd.prot, lb + cd.lb);
           pick.delete(s);
         }
-        dfs(i + 1, used, pick, solid, cov, spend, lb);
+        dfs(i + 1, used, pick, cov, gl, meta, lo, strong, prot, lb);
       };
-      dfs(0, new Set(), new Map(), 0, 0, 0, 0);
-      return { pick: best.pick, timedOut };
+      dfs(0, new Set(), new Map(), 0, 0, 0, 0, 0, 0, 0);
+      return best.pick;
     };
     st.boardKept = board;
     const chars = board.filter(b => !st.isFleet(b.squad[0])), fleets = board.filter(b => st.isFleet(b.squad[0]));
     say('Choosing counters');
-    const rc = solve(chars, false), rf = solve(fleets, !!(fleets.length && dopts.length));
-    st.pick = new Map([...rc.pick, ...rf.pick]);
-    st.timedOut = rc.timedOut || rf.timedOut;
-    st.used = new Set();
-    for (const cd of st.pick.values()) cd.att.forEach(u => st.used.add(u));
-    // datacrons for the offense
-    const charPicked = [...st.pick.keys()].filter(b => !st.isFleet(b.squad[0]));
-    const got = assignCrons(charPicked.map(b => st.pick.get(b).att), st.crons, st);
-    st.dcOff = new Map(charPicked.map((b, i) => [b, got[i]]));
+    const unitsOf = picks => { const u = new Set(); for (const cd of picks.values()) cd.att.forEach(x => u.add(x)); return u; };
+    const first = solve(chars, false, false, new Set());
+    const leftover = chars.filter(s => !first.has(s));
+    const second = leftover.length ? solve(leftover, false, true, unitsOf(first)) : new Map();
+    const fl = solve(fleets, true, true, new Set());
+    st.pick = new Map([...first, ...[...second].map(([s, cd]) => [s, Object.assign({}, cd, { second: true })]), ...fl]);
+    st.timedOut = timedOut;
+    st.used = unitsOf(st.pick);
     // what is free, and which leads to look up for defense
     st.free = Object.keys(st.owned).filter(b => !st.used.has(b));
+    st.glFree = st.free.filter(b => isGl(b) && !st.isShip(b) && st.can(b));  // every free GL gets a job on defense
     const strongest = st.free.filter(b => !st.isShip(b) && st.can(b)).sort((a, b) => st.value(b) - st.value(a)).slice(0, 150);
     if (st.metaSquads && st.metaSquads.length) {
       // the best-holding squads you could field with what is left, by how sure we are of their hold rate
       const ok = st.metaSquads.filter(m => m.units.every(u => st.can(u) && !st.used.has(u))).sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z));
       const leads = [];
       for (const m of ok) { if (!leads.includes(m.units[0])) leads.push(m.units[0]); if (leads.length >= c.metaLeads) break; }
-      for (const e of c.earmark) if (!st.isShip(e) && st.can(e) && !leads.includes(e)) leads.push(e);
+      for (const e of c.earmark.concat(st.glFree)) if (!st.isShip(e) && st.can(e) && !leads.includes(e)) leads.push(e);
       st.dLeads = leads; st.dSource = 'the season\'s meta list (' + st.metaSquads.length + ' squads)';
     } else { st.dLeads = strongest; st.dSource = 'your strongest units'; }
-    return { covered: st.pick.size, of: board.length, solid: [...st.pick.values()].filter(x => x.lb >= SOLID).length, unitsSpent: st.used.size, timedOut: st.timedOut };
+    const qual = [...st.pick.values()];
+    return { covered: st.pick.size, of: board.length, strong: qual.filter(x => x.tier === 'strong').length, glPass: qual.filter(x => x.second).length, unitsSpent: st.used.size, timedOut: st.timedOut };
   };
 
   G.stageCharOptions = async (budgetMs = Infinity) => {
@@ -420,20 +486,30 @@
 
   G.planDefense = () => {
     const c = G.cfg, st = G.st;
-    const must = c.earmark;
-    const dc = pickDefense(st.charOpts || [], c.dChars, st.used, st.can, c.z, c.minDefBattles, must.filter(b => !st.isShip(b)));
-    const df = pickDefense(st.fleetOpts || [], c.dFleets, st.used, st.can, c.z, c.minDefBattles, must.filter(st.isFleet));
-    const offCrons = new Set([...st.dcOff.values()].filter(Boolean).map(x => x.cron.id));
-    const left = st.crons.filter(x => !offCrons.has(x.id));
+    const isGl = u => !!(st.meta[u] || {}).gl;
+    // earmarked leads and every free Galactic Legend are placed first, so no GL sits idle
+    const must = c.earmark.filter(b => !st.isShip(b)).concat(st.glFree.filter(g => !c.earmark.includes(g)));
+    const dc = pickDefense(st.charOpts || [], c.dChars, st.used, st.can, c.z, c.minDefBattles, must);
+    const df = pickDefense(st.fleetOpts || [], c.dFleets, st.used, st.can, c.z, c.minDefBattles, c.earmark.filter(st.isFleet));
     st.defChars = dc.chosen; st.defFleets = df.chosen;
-    st.dcDef = assignCrons(dc.chosen.map(x => x.units), left, st);
-    st.freeGLs = st.free.filter(b => (st.meta[b] || {}).gl).map(st.nm).sort();
-    // the season's best-holding defenses you can field with what offense left, and whether they made your plan
+    // one cron per squad across offense and defense together
+    const offPicks = [...st.pick.keys()].filter(b => !st.isFleet(b.squad[0]));
+    const entries = offPicks.map(b => ({ side: 'off', units: st.pick.get(b).att })).concat(dc.chosen.map(d => ({ side: 'def', units: d.units })));
+    const got = assignCrons(entries, st.crons, st);
+    st.dcOff = new Map(offPicks.map((b, i) => [b, got[i]]));
+    st.dcDef = got.slice(offPicks.length);
+    // where every Galactic Legend ended up
+    const inDef = new Set(); dc.chosen.forEach(d => d.units.forEach(u => inDef.add(u)));
+    const gls = Object.keys(st.owned).filter(b => isGl(b) && !st.isShip(b) && st.can(b));
+    st.glOff = gls.filter(g => st.used.has(g)).map(st.nm).sort();
+    st.glDef = gls.filter(g => !st.used.has(g) && inDef.has(g)).map(st.nm).sort();
+    st.glIdle = gls.filter(g => !st.used.has(g) && !inDef.has(g)).map(st.nm).sort();
+    // the season's best-holding defenses you can field with what offense left, judged on Kyber results only
     const kyber = new Map((st.charOpts || []).map(o => [[...o.units].sort().join('|'), o]));
     const chosen = new Set(dc.chosen.map(x => [...x.units].sort().join('|')));
     st.metaOffer = (st.metaSquads || []).filter(m => m.units.every(u => st.can(u) && !st.used.has(u)))
-      .sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z)).slice(0, 12)
-      .map(m => { const k = [...m.units].sort().join('|'), ky = kyber.get(k); return { units: m.units, hold: m.hold, seen: m.seen, kyberHold: ky ? 1 - ky.atkWin : null, kyberN: ky ? ky.n : 0, inPlan: chosen.has(k) }; });
+      .map(m => { const k = [...m.units].sort().join('|'), ky = kyber.get(k); return { units: m.units, kyberHold: ky ? 1 - ky.atkWin : null, kyberN: ky ? ky.n : 0, lb: ky ? wilson(1 - ky.atkWin, ky.n, c.z) : -1, inPlan: chosen.has(k) }; })
+      .filter(m => m.kyberN >= c.minDefBattles).sort((a, b) => b.lb - a.lb).slice(0, 12);
     return { chars: dc.chosen.length, fleets: df.chosen.length };
   };
 
@@ -443,41 +519,61 @@
     + '.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}.big{font-size:30px;font-weight:700}.small{color:var(--muted);font-size:13px}'
     + '.scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}tr:last-child td{border-bottom:0}.num{text-align:right;white-space:nowrap}'
     + '.squad{font-weight:600}.meta{color:var(--muted);font-size:12.5px;margin-top:2px}.muted{color:var(--muted);font-size:12.5px}.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:0 8px;margin-left:6px;font-size:12px}.chip.old{background:var(--old)}'
-    + '.badge{display:inline-block;border-radius:6px;padding:1px 8px;font-weight:600}.badge.solid{background:var(--goodbg);color:var(--good)}.badge.promising,.badge.marginal{background:var(--warnbg);color:var(--warn)}.bad{color:var(--bad);font-weight:600}.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;margin:12px 0}ul{margin:6px 0 0;padding-left:20px}footer{color:var(--muted);font-size:13px;margin-top:36px}';
+    + '.badge{display:inline-block;border-radius:6px;padding:1px 8px;font-weight:600}.badge.strong{background:var(--goodbg);color:var(--good)}.badge.acceptable{background:var(--warnbg);color:var(--warn)}h3{font-size:16px;margin:24px 0 8px}.bad{color:var(--bad);font-weight:600}.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;margin:12px 0}ul{margin:6px 0 0;padding-left:20px}footer{color:var(--muted);font-size:13px;margin-top:36px}';
 
   G.report = () => {
     const c = G.cfg, st = G.st, nm = st.nm;
     const sq = us => us.map(u => esc(nm(u))).join(' + ');
-    const cron = x => (!x ? '<span class="muted">none left</span>' : 'set ' + x.cron.set_id + ', tier ' + x.cron.tier + '<br><span class="muted">' + esc(x.why.length ? x.why.join(', ') : 'stats only') + '</span>');
+    const perkName = id => PERKS[id] || id;
+    const theirs = ps => (ps && ps.length ? '<div class="meta">Their cron: ' + ps.map(p => esc(PERKS[p.id] || ((p.name || 'perk') + ' L' + p.lvl))).join(' + ') + '</div>' : '');
+    // "Use this cron": the measured recipe when there is one, the best of your crons for it, and what to hunt for if you lack it
+    const recipe = (r, side) => {
+      if (!r || (!r.none && !r.cron && !r.fact)) return '<span class="muted">no cron left</span>';
+      const f = r.fact;
+      if (r.none) return '<span class="muted">Any cron: ' + esc(f.note) + '</span>';
+      if (!f) return r.cron ? 'set ' + r.cron.set_id + ', tier ' + r.cron.tier + '<br><span class="muted">' + esc(r.why.length ? r.why.join(', ') : 'stats only') + ' (no tested recipe)</span>' : '<span class="muted">no cron left</span>';
+      const ideal = f.best.map(perkName).join(' + ');
+      const rate = (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0);
+      const proof = '<div class="meta">Ideal: ' + esc(ideal) + '. ' + rate + ' in Kyber (' + f.n.toLocaleString() + ' battles' + (c.squadSize === 5 ? '' : '; measured at 5v5, not yet at 3v3') + ').</div>';
+      if (!r.cron || r.gain <= 0) return '<b>No cron of yours has these perks</b>' + proof;
+      const have = f.perks.filter(p => r.ids.includes(p.id)).map(p => perkName(p.id)), miss = f.best.filter(id => !r.ids.includes(id)).map(perkName);
+      return '<b>Use set ' + r.cron.set_id + ', tier ' + r.cron.tier + '</b><div class="meta">Has ' + esc(have.join(' + ')) + (miss.length ? '. Missing ' + esc(miss.join(' + ')) : '') + '</div>' + proof;
+    };
+    const label = cd => '<span class="badge ' + cd.tier + '">' + pct(cd.lb) + '</span> <span class="muted">' + (cd.tier === 'strong' ? 'Strong' : 'Acceptable') + '</span>';
     const offRows = fleet => st.boardKept.filter(b => st.isFleet(b.squad[0]) === fleet).sort((a, b) => (b.seen - a.seen) || nm(a.squad[0]).localeCompare(nm(b.squad[0]))).map(b => {
       const cd = st.pick.get(b);
       const sets = b.sets.map(s => '<span class="chip' + (st.live.has(s) ? '' : ' old') + '">set ' + s + (st.live.has(s) ? '' : ' expired') + '</span>').join('');
-      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of 3 rounds ' + sets + '</div>';
-      if (!cd) return '<tr><td>' + left + '</td><td colspan="5" class="bad">No counter you can field</td></tr>';
-      const dcx = fleet ? '<span class="muted">n/a</span>' : cron(st.dcOff.get(b));
-      return '<tr><td>' + left + '</td><td><div class="squad">' + sq(cd.att) + '</div></td><td class="num">' + pct(cd.p) + '</td><td class="num">' + Math.round(cd.n).toLocaleString() + '</td><td class="num"><span class="badge ' + cd.tier + '">' + pct(cd.lb) + '</span></td><td>' + dcx + '</td></tr>';
+      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of 3 rounds ' + sets + '</div>' + theirs(b.perks);
+      if (!cd) return '<tr><td>' + left + '</td><td colspan="' + (fleet ? 4 : 5) + '" class="bad">No qualifying counter: nothing you can field wins 75% of the time with a 60% safe bound</td></tr>';
+      const flags = (cd.second ? '<span class="chip">Galactic Legend: nothing else qualifies</span>' : '')
+        + (fleet && cd.meta ? '<span class="chip">uses a meta capital ship: nothing else qualifies</span>' : '')
+        + (cd.via === 'same capital ship' || cd.via === 'lead only' ? '<span class="chip">no data for their exact ' + (fleet ? 'lineup' : 'squad') + ': ' + cd.via + '</span>' : '');
+      return '<tr><td>' + left + '</td><td><div class="squad">' + sq(cd.att) + '</div>' + flags + '</td><td class="num">' + pct(cd.p) + '</td><td class="num">' + Math.round(cd.n).toLocaleString() + '</td><td class="num">' + label(cd) + '</td>'
+        + (fleet ? '' : '<td>' + recipe(st.dcOff.get(b), 'off') + '</td>') + '</tr>';
     }).join('');
-    const head = '<table><thead><tr><th>Their squad</th><th>Your counter</th><th class="num">Win rate</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody>';
-    const covered = st.pick.size, total = st.boardKept.length, solid = [...st.pick.values()].filter(x => x.lb >= SOLID).length;
-    const spent = [...st.used].reduce((s, u) => s + st.value(u), 0), all = Object.keys(st.owned).reduce((s, u) => s + st.value(u), 0);
+    const head = fleet => '<table><thead><tr><th>Their squad</th><th>Your counter</th><th class="num">Win rate</th><th class="num">Battles</th><th class="num">Safe bound</th>' + (fleet ? '' : '<th>Use this cron</th>') + '</tr></thead><tbody>';
+    const qual = [...st.pick.values()], covered = st.pick.size, total = st.boardKept.length;
+    const strong = qual.filter(x => x.tier === 'strong').length, acceptable = qual.length - strong;
     const tile = (big, small) => '<div class="tile"><div class="big">' + big + '</div><div class="small">' + small + '</div></div>';
-    const defRows = st.defChars.map((d, i) => '<tr><td><div class="squad">' + sq(d.units) + '</div></td><td class="num">' + pct(d.hold) + '</td><td class="num">' + Math.round(d.n).toLocaleString() + '</td><td class="num">' + pct(d.lb) + '</td><td>' + cron(st.dcDef[i]) + '</td></tr>').join('');
+    const defRows = st.defChars.map((d, i) => '<tr><td><div class="squad">' + sq(d.units) + '</div></td><td class="num">' + pct(d.hold) + '</td><td class="num">' + Math.round(d.n).toLocaleString() + '</td><td class="num">' + pct(d.lb) + '</td><td>' + recipe(st.dcDef[i], 'def') + '</td></tr>').join('');
     const fleetRows = st.defFleets.map(d => '<tr><td><div class="squad">' + sq(d.units) + '</div></td><td class="num">' + pct(d.hold) + '</td><td class="num">' + Math.round(d.n).toLocaleString() + '</td><td class="num">' + pct(d.lb) + '</td></tr>').join('');
     const dropped = st.dropped.length ? '<h2>Dropped from the plan</h2><p class="muted">Rare under live datacron sets, so they most likely only worked with an expired one:</p><ul>' + st.dropped.map(x => '<li>' + sq(x.squad) + ' <span class="muted">(' + x.battles + ' battles under live sets)</span></li>').join('') + '</ul>' : '';
+    const glLine = (what, names) => '<li><b>' + what + ':</b> ' + (names.length ? esc(names.join(', ')) : 'none') + '</li>';
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GAC Counter Planner</title><style>' + CSS + '</style></head><body><main>'
-      + '<h1>GAC Counter Planner</h1><p class="lead">Predicted from the most recent ' + c.squadSize + 'v' + c.squadSize + ' week. Kyber battles, live datacron sets only.</p>'
+      + '<h1>GAC Counter Planner</h1><p class="lead">Predicted from the most recent ' + c.squadSize + 'v' + c.squadSize + ' week. Kyber battles, live datacron sets only. A counter is offered only if it wins at least 75% of the time with a safe bound of at least 60%.</p>'
       + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
       + (c.auto ? (c.auto.stale ? ' (no GAC week is live, so this is the last opponent you faced: ' + esc(c.auto.season) + ', round ' + c.auto.round + ')'
         : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '') + '</div>'
-      + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads covered') + tile(solid, 'counters above the 75% safe bound') + tile(pct(spent / all, 0), 'of your unit power spent on offense') + tile(st.freeGLs.length, 'Galactic Legends kept free for defense') + '</div>'
-      + '<h2>Offense: character squads</h2><div class="scroll">' + head + offRows(false) + '</tbody></table></div>'
-      + '<h2>Offense: fleets</h2><div class="scroll">' + head + offRows(true) + '</tbody></table></div>' + dropped
-      + '<h2>Your defense, from what is left</h2><div class="note">Galactic Legends still free: <b>' + esc(st.freeGLs.join(', ') || 'none') + '</b>. "Hold" is how often attackers lose to that squad in Kyber.</div>'
-      + '<div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody>' + defRows + '</tbody></table></div>'
-      + (st.metaOffer && st.metaOffer.length ? '<h2>Meta defenses you can field</h2><p class="muted">The season\'s best-holding squads (all leagues) that you can build from what offense left. Offense avoids their units where it can.</p><div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Season hold</th><th class="num">Placed</th><th class="num">Kyber hold</th><th>In your plan</th></tr></thead><tbody>'
-        + st.metaOffer.map(m => '<tr><td><div class="squad">' + sq(m.units) + '</div></td><td class="num">' + pct(m.hold, 0) + '</td><td class="num">' + Math.round(m.seen).toLocaleString() + '</td><td class="num">' + (m.kyberHold == null ? '<span class="muted">n/a</span>' : pct(m.kyberHold, 0)) + '</td><td>' + (m.inPlan ? 'Yes' : '<span class="muted">No</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '')
-      + '<h2>Defense fleets</h2><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
-      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. '
+      + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads you can counter') + tile(strong, 'Strong counters (safe bound 75%+)') + tile(acceptable, 'Acceptable counters (safe bound 60% to 75%)') + '</div>'
+      + '<h2>Attack with: character squads</h2><div class="scroll">' + head(false) + offRows(false) + '</tbody></table></div>'
+      + '<h2>Attack with: fleets</h2><div class="scroll">' + head(true) + offRows(true) + '</tbody></table></div>' + dropped
+      + '<h2>Set on defense</h2><div class="note"><b>Where your Galactic Legends went</b><ul>' + glLine('Offense (only where nothing else qualified)', st.glOff) + glLine('Defense', st.glDef) + glLine('Idle', st.glIdle) + '</ul></div>'
+      + '<p class="muted">"Hold" is how often attackers lose to that squad in Kyber. ' + c.dChars + ' character squads and ' + c.dFleets + ' fleets fit a ' + c.squadSize + 'v' + c.squadSize + ' board.</p>'
+      + '<div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Use this cron</th></tr></thead><tbody>' + defRows + '</tbody></table></div>'
+      + (st.metaOffer && st.metaOffer.length ? '<h2>Meta defenses you can field</h2><p class="muted">The season\'s best-holding squads that you can build from what offense left, judged on Kyber results. Offense avoids their units where it can.</p><div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Kyber hold</th><th class="num">Battles</th><th>In your plan</th></tr></thead><tbody>'
+        + st.metaOffer.map(m => '<tr><td><div class="squad">' + sq(m.units) + '</div></td><td class="num">' + pct(m.kyberHold, 0) + '</td><td class="num">' + Math.round(m.kyberN).toLocaleString() + '</td><td>' + (m.inPlan ? 'Yes' : '<span class="muted">No</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '')
+      + '<h3>Defense fleets</h3><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
+      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. Cron recipes were measured in Kyber 5v5 on ' + FACTS_DATE + '. '
       + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests' + (G.cached ? ' (' + G.cached + ' answers reused from the last 12 hours)' : '') + '. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
 
