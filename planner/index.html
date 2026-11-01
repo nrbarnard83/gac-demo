@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GAC Counter Planner</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6672;--line:#e1e5ea;--accent:#2f6fed}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px 64px}h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:28px 0 8px}p{margin:8px 0}.muted{color:var(--muted)}
+ol{padding-left:22px}li{margin:8px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+a.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:12px 18px;cursor:grab}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;height:92px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+</style></head><body><main>
+<h1>GAC Counter Planner</h1>
+<p class="muted">Pick counters for an opponent's predicted defense, then build your own defense from the units you have left. It runs in your browser, with your own swgoh.gg login. Nothing is uploaded.</p>
+
+<div class="card"><b>You need</b>
+<ul><li>A swgoh.gg account with <b>GAC Insight</b> access (Player+, or a guild with Guild Patron).</li>
+<li>A desktop browser (Chrome, Edge or Firefox).</li></ul></div>
+
+<h2>Set it up once</h2>
+<ol>
+<li>Sign in at swgoh.gg.</li>
+<li>Drag this button onto your bookmarks bar: <a class="btn" id="bm" href="#">GAC Planner</a></li>
+</ol>
+
+<h2>Use it</h2>
+<ol>
+<li>Open any page on swgoh.gg and click the <b>GAC Planner</b> bookmark.</li>
+<li>Enter your ally code, your opponent's ally code, and 3 or 5 for 3v3 or 5v5.</li>
+<li>Wait about 30 seconds. The report opens on top of the page. <b>Download page</b> saves it.</li>
+</ol>
+
+<h2>If dragging does not work</h2>
+<p>Open any swgoh.gg page, press F12, choose <b>Console</b>, paste this and press Enter:</p>
+<textarea id="code" readonly></textarea>
+<p><button id="copy">Copy</button> <span class="muted" id="copied"></span></p>
+
+<h2>Good to know</h2>
+<ul class="muted">
+<li>It reads the opponent's most recent week of the right size, so a brand-new opponent with no history cannot be planned.</li>
+<li>Counters come from Kyber battles that used datacron sets still in play. Week one of a new season has thin data.</li>
+<li>5v5 is untested. Fleets and 3v3 are tested.</li>
+<li>It uses swgoh.gg's own data endpoints, which can change without notice. If it stops working, that is the likely reason.</li>
+<li>Be kind to the site: a run makes about 200 requests, paced out.</li>
+</ul>
+</main>
+<script>
+(function(){
+  var SRC='https://nrbarnard83.github.io/gac-demo/gac.js';  // where gac.js is hosted
+  var body="(async()=>{if(!location.hostname.endsWith('swgoh.gg')){alert('Open a swgoh.gg page first, then click again.');return}"
+   +"var me=prompt('Your ally code');if(!me)return;var opp=prompt('Opponent ally code');if(!opp)return;var sz=prompt('Squad size: 3 for 3v3, 5 for 5v5','3');if(!sz)return;"
+   +"if(!window.GAC){await new Promise(function(ok,no){var s=document.createElement('script');s.src='"+SRC+"?'+Date.now();s.onload=ok;s.onerror=no;document.head.append(s)})}"
+   +"GAC.run({me:me.replace(/\\D/g,''),opp:opp.replace(/\\D/g,''),squadSize:+sz})})()";
+  document.getElementById('bm').href='javascript:'+body;
+  var ta=document.getElementById('code');ta.value=body;
+  document.getElementById('copy').onclick=function(){
+    var ok=function(){document.getElementById('copied').textContent='Copied'};
+    var fail=function(){ta.select();document.getElementById('copied').textContent='Press Ctrl+C to copy'};
+    if(navigator.clipboard){navigator.clipboard.writeText(body).then(ok,fail)}else{fail()}};
+})();
+</script></body></html>
