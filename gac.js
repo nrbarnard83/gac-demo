@@ -16,9 +16,27 @@
   const relicLevel = t => (t == null ? null : (t <= 1 ? -1 : t - 2));
   const say = m => { G.log.push(m); if (G.ui) G.ui(m); };
   G.calls = 0;  // requests made to swgoh.gg, shown in the report footer
-  const rawJson = async u => { G.calls++; const r = await fetch(u, { credentials: 'same-origin' }); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
+  // Every request goes through here: spaced out (about 7 a second at most) and, if swgoh.gg says "too many requests"
+  // (HTTP 429) or is briefly unavailable, it waits as long as the site asks and tries again instead of giving up.
+  const gate = { next: 0 };
+  const polite = async u => {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const slot = Math.max(Date.now(), gate.next); gate.next = slot + 150;
+      if (slot > Date.now()) await sleep(slot - Date.now());
+      G.calls++;
+      const r = await fetch(u, { credentials: 'same-origin' });
+      if (r.status !== 429 && r.status !== 503) return r;
+      const asked = parseInt(r.headers.get('retry-after') || '', 10);
+      const ms = Math.min(asked > 0 ? asked * 1000 : 5000 * Math.pow(2, attempt), 90000);
+      say('swgoh.gg asked us to slow down, waiting ' + Math.round(ms / 1000) + ' seconds');
+      gate.next = Date.now() + ms;
+      await sleep(ms);
+    }
+    throw new Error('swgoh.gg is limiting requests right now. Wait a few minutes and try again.');
+  };
+  const rawJson = async u => { const r = await polite(u); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
   const dataOf = async u => { const j = await rawJson(u); return j.data || j; };
-  const page = async u => { G.calls++; return new DOMParser().parseFromString(await (await fetch(u, { credentials: 'same-origin' })).text(), 'text/html'); };
+  const page = async u => new DOMParser().parseFromString(await (await polite(u)).text(), 'text/html');
   const disjoint = (set, arr) => { for (const x of arr) if (set.has(x)) return false; return true; };
   const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
 
