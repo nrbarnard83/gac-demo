@@ -24,7 +24,7 @@ button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--li
 code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;height:84px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
 </style></head><body><main>
 <h1>GAC Counter Planner</h1>
-<p class="lead muted">Predicts an opponent's defense, picks counters that really win, then builds your own defense from the units you have left. It runs in your browser with your own swgoh.gg login, and nothing is uploaded. <a href="../">See a sample report</a></p>
+<p class="lead muted">Picks counters for an opponent's predicted defense, then builds your own defense from the units left over. It runs in your browser on your own swgoh.gg login, and nothing is uploaded. <a href="../">See a sample report</a></p>
 
 <div class="strip" id="support" hidden>
 <span><b>Free to use, built by a guild leader in his spare time.</b><span class="muted">If it saves you time in GAC, a small tip is welcome and never expected.</span></span>
@@ -56,45 +56,37 @@ code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;
 <details><summary>Reading the report</summary>
 <dl>
 <dt>Their squad / Your counter</dt><dd>What the opponent is expected to place, and the squad of yours that beats it.</dd>
-<dt>Win rate and Battles</dt><dd>How often that counter wins in Kyber, and how many battles that is based on.</dd>
-<dt>Safe bound</dt><dd>The cautious version of the win rate, after allowing for how few battles it might rest on. A green badge means the safe bound is at least 75%.</dd>
-<dt>Datacron</dt><dd>Which of your datacrons fits that squad. Each datacron is used once.</dd>
-<dt>Expired (red tag)</dt><dd>The opponent's squad was built around a datacron set that no longer applies. Judge it by its units.</dd>
-<dt>Your defense</dt><dd>Squads picked from the units not used on offense. "Hold" is how often attackers lose to that squad.</dd>
-<dt>Meta defenses you can field</dt><dd>swgoh.gg's best-holding defense squads for the last season of this size, filtered to the ones you can build from what offense left. "Season hold" covers all leagues, "Kyber hold" is Kyber only when there is enough data. Offense avoids spending these squads' units where another solid counter exists.</dd>
+<dt>Win rate, Battles, Safe bound</dt><dd>How often the counter wins in Kyber, over how many battles, and the cautious version after allowing for small samples. Green means at least 75%.</dd>
+<dt>Datacron</dt><dd>The one of yours that fits that squad. Each is used once.</dd>
+<dt>Expired (red tag)</dt><dd>Their squad was built around a datacron set that no longer applies, so judge it by its units.</dd>
+<dt>Your defense</dt><dd>Squads from the units offense did not use. "Hold" is how often attackers lose to them.</dd>
+<dt>Meta defenses you can field</dt><dd>swgoh.gg's best-holding squads that you can build from what is left. "Season hold" covers all leagues, "Kyber hold" is Kyber only. Offense avoids their units where it can.</dd>
 </dl></details>
 
 <details><summary>If something goes wrong</summary>
 <dl>
-<dt>I click the bookmark and nothing happens</dt><dd>You are probably not on a swgoh.gg page. Click the swgoh.gg tab first, then the bookmark.</dd>
-<dt>It says "Open a swgoh.gg page first"</dt><dd>Same thing. Switch to a swgoh.gg tab and click again.</dd>
-<dt>It says swgoh.gg refused the request</dt><dd>You are not signed in, or your account cannot open GAC Insight. Sign in, then open the GAC Insight page once to confirm.</dd>
-<dt>It says it could not find that ally code</dt><dd>Check the opponent's ally code. Digits only, and it must be a player who has a swgoh.gg profile.</dd>
-<dt>It says no recent week with data was found</dt><dd>That opponent has no recent GAC history of the squad size chosen. Use Choose another opponent.</dd>
-<dt>It asks for my ally code</dt><dd>Your swgoh.gg account is not linked to a player. Type it in once and it will remember it.</dd>
-<dt>My bookmark still asks questions</dt><dd>It is an older bookmark. Delete it and drag the button above onto the bar again.</dd>
+<dt>Nothing happens, or "Open a swgoh.gg page first"</dt><dd>You are not on a swgoh.gg page. Click the swgoh.gg tab, then the bookmark.</dd>
+<dt>swgoh.gg refused the request</dt><dd>You are not signed in, or your account cannot open GAC Insight. Sign in and open GAC Insight once to check.</dd>
+<dt>Ally code not found, or no recent week with data</dt><dd>That opponent has no GAC history at this squad size, or the code is wrong. Use Choose another opponent.</dd>
+<dt>It asks me questions</dt><dd>Either your bookmark is an older one (delete it and drag the button again), or your swgoh.gg account is not linked to a player (type your ally code once and it remembers).</dd>
 <dt>Still stuck</dt><dd>Use the console method below.</dd>
 </dl></details>
 
 <details><summary>Console method (no bookmark needed)</summary>
-<p class="muted">Open any swgoh.gg page, press <b>F12</b>, choose <b>Console</b>, paste this and press Enter:</p>
+<p class="muted">On any swgoh.gg page press <b>F12</b>, open <b>Console</b>, paste this, and press Enter:</p>
 <textarea id="code" readonly></textarea>
 <p><button id="copy">Copy</button> <span class="muted" id="copied"></span></p>
 </details>
 
 <details><summary>On a phone</summary>
-<p>Phones treat bookmarks differently. It can work in Chrome on Android and Safari on iPhone if you save a bookmark and replace its address with the code from the console method, then open it from the bookmarks menu while on a swgoh.gg page. It does not work in the browsers built into apps such as Discord, Reddit or Facebook.</p>
-<p>The easy way: run it on a computer, press <b>Download page</b>, and send the file to your phone. The report reads well on a small screen.</p>
+<p>Not built for phones: bookmarks behave differently, and it will not run in the browsers inside apps like Discord, Reddit or Facebook. The easy way is to run it on a computer, press <b>Download page</b>, and send the file to your phone, where the report reads well. (Chrome on Android and Safari on iPhone can work with a saved bookmark whose address is the console code.)</p>
 </details>
 
 <details><summary>Good to know</summary>
 <ul class="muted">
-<li>It reads the opponent's most recent week of the right squad size, so it cannot plan against a player with no GAC history.</li>
-<li>Counters come from Kyber battles that used datacron sets still in play. In the first week of a new season there is little data, and the safe bound shows it.</li>
-<li>Balance changes made after the battle data was recorded are not reflected.</li>
-<li>3v3 and fleets are tested. 5v5 is not yet.</li>
-<li>It uses swgoh.gg's own data, which can change without notice. If it stops working, that is the likely reason.</li>
-<li>One run makes about 70 requests, spaced out. Please do not run it over and over.</li>
+<li>It needs the opponent to have GAC history at this squad size. In a new season's first week the data is thin, which the safe bound shows, and balance changes made after the data was recorded are not reflected.</li>
+<li>3v3 and fleets are tested; 5v5 is not yet.</li>
+<li>It uses swgoh.gg's own data, which can change without notice, and one run makes about 70 requests, so please do not run it over and over.</li>
 </ul></details>
 </main>
 <script>
