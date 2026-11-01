@@ -462,7 +462,8 @@
     }
     if (G.cfg && G.cfg.auto) bar.append(mk('Choose another opponent', () => { w.remove(); G.ask({ manual: true }); }));
     bar.append(mk('Download page', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'gac-plan.html'; a.click(); }), mk('Close', () => w.remove()));
-    const f = document.createElement('iframe'); f.srcdoc = html; f.style.cssText = 'flex:1;border:0;background:#fff';
+    // sandboxed with no permissions: the report is plain text and styling, so it never needs scripts or access to the swgoh.gg page
+    const f = document.createElement('iframe'); f.setAttribute('sandbox', ''); f.srcdoc = html; f.style.cssText = 'flex:1;border:0;background:#fff';
     w.append(bar, f); document.body.append(w);
   };
   G.show = html => overlay(html);
