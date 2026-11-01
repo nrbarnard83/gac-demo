@@ -13,15 +13,16 @@
   const wilson = (p, n, z) => { const d = 1 + z * z / n; return (p + z * z / (2 * n) - z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / d; };
   const relicLevel = t => (t == null ? null : (t <= 1 ? -1 : t - 2));
   const say = m => { G.log.push(m); if (G.ui) G.ui(m); };
-  const rawJson = async u => { const r = await fetch(u, { credentials: 'same-origin' }); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
+  G.calls = 0;  // requests made to swgoh.gg, shown in the report footer
+  const rawJson = async u => { G.calls++; const r = await fetch(u, { credentials: 'same-origin' }); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
   const dataOf = async u => { const j = await rawJson(u); return j.data || j; };
-  const page = async u => new DOMParser().parseFromString(await (await fetch(u, { credentials: 'same-origin' })).text(), 'text/html');
+  const page = async u => { G.calls++; return new DOMParser().parseFromString(await (await fetch(u, { credentials: 'same-origin' })).text(), 'text/html'); };
   const disjoint = (set, arr) => { for (const x of arr) if (set.has(x)) return false; return true; };
   const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
 
   G.setup = cfg => {
     G.cfg = Object.assign({ minRelic: 5, minStars: 1, z: 1.28, league: 'KYBER', squadSize: 3, minLive: 500, dChars: 15, dFleets: 3,
-      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minPct: 0.6, minBattles: 5 }, cfg);
+      earmark: [], top: 8, seconds: 8, minDefBattles: 50, minPct: 0.6, minBattles: 5, metaLeads: 40 }, cfg);
     G.st = {}; G.log = [];
     return G.cfg;
   };
@@ -146,6 +147,27 @@
     say('Checking how your ' + ships.length + ' capital ships hold on defense');
     for (const s of ships) { st.fleetOpts.push(...(await summarize(s, true, c))); await sleep(80); }
     return st.fleetOpts.length;
+  };
+
+  // ---------------------------------------------------------------- swgoh.gg's own ranking of defense squads for the last season of this size
+  // One page (top 100 squads: how often each was placed and how often it held). It tells us which squads are worth checking
+  // against Kyber results, so we look up a few dozen leads instead of 150.
+  G.stageMeta = async () => {
+    const c = G.cfg, st = G.st;
+    st.metaSquads = [];
+    try {
+      const d = await dataOf('/api/v1/gac/config-data/');
+      const sid = ((d.latestBattleSeasonIdsBySquadSize || []).find(x => +x.squadSize === c.squadSize) || {}).seasonId;
+      say('Reading the season\'s best-holding defense squads');
+      const doc = await page('/gac/squads/?sort=percent&cutoff=0.1' + (sid ? '&season_id=' + sid : ''));
+      const num = (n, k) => parseFloat(String(n).replace(/,/g, '')) * (k === 'K' ? 1e3 : k === 'M' ? 1e6 : 1);
+      for (const tr of doc.querySelectorAll('main tr')) {
+        const units = [...tr.querySelectorAll('[data-unit-def-tooltip-app]')].map(u => u.getAttribute('data-unit-def-tooltip-app'));
+        const m = norm(tr.textContent).match(/([0-9.,]+)([KM]?) ([0-9.]+)% ([0-9.]+)/);
+        if (units.length === c.squadSize && m) st.metaSquads.push({ units, seen: num(m[1], m[2]), hold: parseFloat(m[3]) / 100, banners: parseFloat(m[4]) });
+      }
+    } catch (e) { st.metaSquads = []; }  // never fatal: the planner falls back to your strongest units
+    return st.metaSquads.length;
   };
 
   // ---------------------------------------------------------------- shared helpers: defense picking, datacrons
@@ -328,7 +350,15 @@
     st.dcOff = new Map(charPicked.map((b, i) => [b, got[i]]));
     // what is free, and which leads to look up for defense
     st.free = Object.keys(st.owned).filter(b => !st.used.has(b));
-    st.dLeads = st.free.filter(b => !st.isShip(b) && st.can(b)).sort((a, b) => st.value(b) - st.value(a)).slice(0, 150);
+    const strongest = st.free.filter(b => !st.isShip(b) && st.can(b)).sort((a, b) => st.value(b) - st.value(a)).slice(0, 150);
+    if (st.metaSquads && st.metaSquads.length) {
+      // the best-holding squads you could field with what is left, by how sure we are of their hold rate
+      const ok = st.metaSquads.filter(m => m.units.every(u => st.can(u) && !st.used.has(u))).sort((a, b) => wilson(b.hold, b.seen, c.z) - wilson(a.hold, a.seen, c.z));
+      const leads = [];
+      for (const m of ok) { if (!leads.includes(m.units[0])) leads.push(m.units[0]); if (leads.length >= c.metaLeads) break; }
+      for (const e of c.earmark) if (!st.isShip(e) && st.can(e) && !leads.includes(e)) leads.push(e);
+      st.dLeads = leads; st.dSource = 'the season\'s meta list (' + st.metaSquads.length + ' squads)';
+    } else { st.dLeads = strongest; st.dSource = 'your strongest units'; }
     return { covered: st.pick.size, of: board.length, solid: [...st.pick.values()].filter(x => x.lb >= SOLID).length, unitsSpent: st.used.size, timedOut: st.timedOut };
   };
 
@@ -396,7 +426,8 @@
       + '<h2>Your defense, from what is left</h2><div class="note">Galactic Legends still free: <b>' + esc(st.freeGLs.join(', ') || 'none') + '</b>. "Hold" is how often attackers lose to that squad in Kyber.</div>'
       + '<div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody>' + defRows + '</tbody></table></div>'
       + '<h2>Defense fleets</h2><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
-      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. ' + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
+      + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. '
+      + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
 
   // ---------------------------------------------------------------- full run with a progress box and a report overlay
@@ -554,8 +585,10 @@
     document.body.append(box);
     G.ui = m => { box.textContent = m + ' ...'; };
     try {
-      await G.stage1(); await G.stageDefense(); await G.stageCounters(); await G.stageFleetOptions();
+      G.calls = 0; G.t0 = tnow();
+      await G.stage1(); await G.stageDefense(); await G.stageCounters(); await G.stageFleetOptions(); await G.stageMeta();
       G.planOffense(); await G.stageCharOptions(); G.planDefense();
+      G.secs = Math.round((tnow() - G.t0) / 1000);
       G.ui = null; box.remove(); overlay(G.report());
     } catch (e) {
       G.ui = null;
