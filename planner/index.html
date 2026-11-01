@@ -2,48 +2,84 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GAC Counter Planner</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6672;--line:#e1e5ea;--accent:#2f6fed}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;color-scheme:dark}}
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6672;--line:#e1e5ea;--accent:#2f6fed;--warnbg:#fdf0d5;--warn:#6b4600;--okbg:#e3f4ea}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;--warnbg:#33290f;--warn:#f0c36a;--okbg:#14301f;color-scheme:dark}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:720px;margin:0 auto;padding:32px 16px 64px}h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:28px 0 8px}p{margin:8px 0}.muted{color:var(--muted)}
-ol{padding-left:22px}li{margin:8px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
-a.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:12px 18px;cursor:grab}
+main{max-width:740px;margin:0 auto;padding:32px 16px 72px}h1{font-size:30px;margin:0 0 6px}h2{font-size:20px;margin:34px 0 10px}h3{font-size:16px;margin:18px 0 4px}p{margin:8px 0}.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 14px;margin:12px 0}
+.steps{list-style:none;padding:0;counter-reset:s;margin:12px 0}
+.steps>li{counter-increment:s;position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 14px 14px 56px;margin:10px 0}
+.steps>li:before{content:counter(s);position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:28px;font-weight:700}
+a.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:12px 20px;cursor:grab;margin:6px 0}
 button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
 code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;height:92px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+dt{font-weight:700;margin-top:10px}dd{margin:2px 0 0 0;color:var(--muted)}ul{padding-left:22px}li{margin:4px 0}
 </style></head><body><main>
 <h1>GAC Counter Planner</h1>
-<p class="muted">Pick counters for an opponent's predicted defense, then build your own defense from the units you have left. It runs in your browser, with your own swgoh.gg login. Nothing is uploaded.</p>
+<p class="muted">Give it your ally code and an opponent's. It predicts what that opponent will put on defense, picks counters that really win, and then builds your own defense from the units you have left. It runs inside your browser with your own swgoh.gg login. Nothing is uploaded and nothing is stored.</p>
+<p><a href="../">See a sample report first</a></p>
 
-<div class="card"><b>You need</b>
-<ul><li>A swgoh.gg account with <b>GAC Insight</b> access (Player+, or a guild with Guild Patron).</li>
-<li>A desktop browser (Chrome, Edge or Firefox).</li></ul></div>
+<div class="card"><b>Before you start, you need</b>
+<ul><li>A swgoh.gg account that can open <b>GAC Insight</b> (a Player+ subscriber, or a member of a guild with Guild Patron).</li>
+<li>A computer with Chrome, Edge or Firefox. (Phones are covered at the bottom.)</li>
+<li>Your ally code and your opponent's. The ally code is the 9 digits in a player's swgoh.gg address: swgoh.gg/p/<b>123456789</b>/</li></ul></div>
 
-<h2>Set it up once</h2>
-<ol>
-<li>Sign in at swgoh.gg.</li>
-<li>Drag this button onto your bookmarks bar (do not click it here): <a class="btn" id="bm" href="#">GAC Planner</a>
-<div class="card" id="dragnote" hidden><b>Drag it, do not click it.</b> Hold the mouse button on it, move it up to your bookmarks bar, and let go. If your bookmarks bar is hidden, press Ctrl+Shift+B first. Then open swgoh.gg and click the bookmark there.</div></li>
+<h2>Set it up (once)</h2>
+<ol class="steps">
+<li><b>Sign in at swgoh.gg</b> in your browser, and check you can open the GAC Insight page.</li>
+<li><b>Show your bookmarks bar.</b> It is the row of shortcuts under the address bar. If you cannot see it, press <b>Ctrl+Shift+B</b> (Cmd+Shift+B on a Mac).</li>
+<li><b>Drag this button up onto the bookmarks bar</b> and let go:<br><a class="btn" id="bm" href="#">GAC Planner</a>
+<div class="warn" id="dragnote" hidden><b>Drag it, do not click it.</b> Hold the mouse button down on it, move the mouse up to the bookmarks bar, and release. Clicking it here does nothing useful.</div>
+<p class="muted">You now have a bookmark called "GAC Planner". You never need to come back to this page unless you want the steps again.</p></li>
 </ol>
 
-<h2>Use it</h2>
-<ol>
-<li>Open any page on swgoh.gg and click the <b>GAC Planner</b> bookmark.</li>
-<li>Enter your ally code, your opponent's ally code, and 3 or 5 for 3v3 or 5v5.</li>
-<li>Wait about 30 seconds. The report opens on top of the page. <b>Download page</b> saves it.</li>
+<h2>Run it</h2>
+<div class="warn"><b>It only works on a swgoh.gg page.</b> It does nothing on a New Tab, on this page, or on any other website. Open <b>swgoh.gg</b> first.</div>
+<ol class="steps">
+<li><b>Open any swgoh.gg page</b> in a tab, for example the home page, and make sure you are signed in.</li>
+<li><b>Click the "GAC Planner" bookmark.</b> Three small boxes appear, one after another:
+<ul><li>your ally code</li><li>your opponent's ally code</li><li>3 for 3v3, or 5 for 5v5 (3 is the default)</li></ul></li>
+<li><b>Wait about 30 seconds.</b> A small black box in the corner shows what it is doing. Do not close the tab.</li>
+<li><b>Read the report.</b> It opens over the page. <b>Download page</b> (top right) saves it as a file you can send to anyone. <b>Close</b> puts you back on swgoh.gg.</li>
 </ol>
 
-<h2>If dragging does not work</h2>
-<p>Open any swgoh.gg page, press F12, choose <b>Console</b>, paste this and press Enter:</p>
+<h2>Reading the report</h2>
+<dl>
+<dt>Their squad / Your counter</dt><dd>What the opponent is expected to place, and the squad of yours that beats it.</dd>
+<dt>Win rate and Battles</dt><dd>How often that counter wins in Kyber, and how many battles that is based on.</dd>
+<dt>Safe bound</dt><dd>The cautious version of the win rate, after allowing for how few battles it might rest on. A green badge means the safe bound is at least 75%. A counter based on only a handful of battles looks weaker here than its raw win rate.</dd>
+<dt>Datacron</dt><dd>Which of your datacrons fits that squad. Each datacron is used once.</dd>
+<dt>Expired (red tag)</dt><dd>The opponent's squad was built around a datacron set that no longer applies. Judge it by its units, not its old datacron.</dd>
+<dt>Your defense</dt><dd>Squads picked from the units not used on offense. "Hold" is how often attackers lose to that squad.</dd>
+</dl>
+
+<h2>If something goes wrong</h2>
+<dl>
+<dt>I click the bookmark and nothing happens</dt><dd>You are probably not on a swgoh.gg page. Click the swgoh.gg tab first, then the bookmark.</dd>
+<dt>It says "Open a swgoh.gg page first"</dt><dd>Same thing. Switch to a swgoh.gg tab and click again.</dd>
+<dt>It says swgoh.gg refused the request</dt><dd>You are not signed in, or your account cannot open GAC Insight. Sign in, then open the GAC Insight page once to confirm.</dd>
+<dt>It says it could not find that ally code</dt><dd>Check both codes. Use digits only.</dd>
+<dt>It says no recent week with data was found</dt><dd>That opponent has no recent GAC history of the squad size you chose. Try the other size, or another opponent.</dd>
+<dt>Still stuck, or the bookmark will not drag</dt><dd>Use the console method below.</dd>
+</dl>
+
+<h3>Console method (no bookmark needed)</h3>
+<p class="muted">Open any swgoh.gg page, press <b>F12</b>, choose the <b>Console</b> tab, paste this, and press Enter:</p>
 <textarea id="code" readonly></textarea>
 <p><button id="copy">Copy</button> <span class="muted" id="copied"></span></p>
 
+<h2>On a phone</h2>
+<p>Phones are the awkward part, because they treat bookmarks differently. It can work in Chrome on Android and Safari on iPhone if you save a bookmark and replace its address with the code from the console method, then open it from the bookmarks menu while you are on a swgoh.gg page. It does not work in the browsers built into apps such as Discord, Reddit or Facebook.</p>
+<p>The easy way: run it on a computer, press <b>Download page</b>, and send the file to your phone. The report is laid out to read well on a small screen.</p>
+
 <h2>Good to know</h2>
 <ul class="muted">
-<li>It reads the opponent's most recent week of the right size, so a brand-new opponent with no history cannot be planned.</li>
-<li>Counters come from Kyber battles that used datacron sets still in play. Week one of a new season has thin data.</li>
-<li>5v5 is untested. Fleets and 3v3 are tested.</li>
-<li>It uses swgoh.gg's own data endpoints, which can change without notice. If it stops working, that is the likely reason.</li>
-<li>Be kind to the site: a run makes about 200 requests, paced out.</li>
+<li>It reads the opponent's most recent week of the squad size you pick, so it cannot plan against a player with no GAC history.</li>
+<li>Counters come from Kyber battles that used datacron sets still in play. In the first week of a new season there is little data, and the safe bound will show it.</li>
+<li>3v3 and fleets are tested. 5v5 is not yet.</li>
+<li>It uses swgoh.gg's own data, which can change without notice. If it stops working, that is the likely reason.</li>
+<li>One run makes about 200 requests, spaced out. Please do not run it over and over.</li>
 </ul>
 </main>
 <script>

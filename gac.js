@@ -421,7 +421,15 @@
       await G.stage1(); await G.stageDefense(); await G.stageCounters(); await G.stageFleetOptions();
       G.planOffense(); await G.stageCharOptions(); G.planDefense();
       G.ui = null; box.remove(); overlay(G.report());
-    } catch (e) { G.ui = null; box.textContent = 'Stopped: ' + e.message; setTimeout(() => box.remove(), 15000); throw e; }
+    } catch (e) {
+      G.ui = null;
+      const m = String(e.message);
+      box.textContent = /returned (401|403)/.test(m) ? 'Stopped: swgoh.gg refused the request. Make sure you are signed in and have GAC Insight access (Player+).'
+        : /returned 404/.test(m) ? 'Stopped: swgoh.gg could not find that ally code. Check both codes.'
+        : 'Stopped: ' + m;
+      setTimeout(() => box.remove(), 20000);
+      throw e;
+    }
   };
   return 'GAC ready';
 })();
