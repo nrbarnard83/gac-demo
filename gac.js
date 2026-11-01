@@ -20,13 +20,30 @@
   const FACTS_DATE = '2026-11-01';
   const P_DS = 'datacron_alignment_generic_034', P_UFU = 'datacron_faction_ufu_001', P_SHIN = 'datacron_character_shinhati_001';
   const P_LS25 = 'datacron_alignment_generic_021', P_MAL = 'datacron_character_taronmalicos_002';
+  // Set 36 perks, named as swgoh4.life and ahnaldt101 name them and matched to the game's own perk list. Their recipes below are
+  // from those guides only (src: 'guides') until Insight has been used to measure them.
+  const P_DOUBT = 'datacron_alignment_dark_001', P_DSDOT = 'datacron_alignment_generic_020', P_LS50 = 'datacron_alignment_light_001';
+  const P_JEDI100 = 'datacron_faction_generic_025', P_BHPAY = 'datacron_faction_bountyhunter_004', P_BH10 = 'datacron_faction_generic_007';
+  const P_KRR = 'datacron_character_generic_048', P_IG90 = 'datacron_character_ig90_002', P_BOBA = 'datacron_character_bobafettscion_002';
+  const P_LEIA = 'datacron_character_jeditrainingleia_001', P_ANAKIN = 'datacron_character_generic_032', P_GKEN = 'datacron_character_generic_003';
   const PERKS = {
-    [P_DS]: 'Dark Side L3 "assist if buffed"', [P_UFU]: 'Unaligned Force User L6', [P_SHIN]: 'Shin Hati L9',
+    [P_DS]: 'Dark Side L3 "Buffs Assist"', [P_UFU]: 'Unaligned Force User L6 "Def. Stacking"', [P_SHIN]: 'Shin Hati L9',
     [P_LS25]: 'Light Side L3 "+25% turn meter"', [P_MAL]: 'Taron Malicos L9',
+    [P_DOUBT]: 'Dark Side L3 "Doubt"', [P_DSDOT]: 'Dark Side L3 "Prot. Up on DoT"', [P_LS50]: 'Light Side L3 "50% Prot. Up"',
+    [P_JEDI100]: 'Jedi L6 "100% DMG at Full H/P"', [P_BHPAY]: 'Bounty Hunter L6 "Payout at 0 Prot."', [P_BH10]: 'Bounty Hunter L6 "10% DMG on debuff"',
+    [P_KRR]: 'Krrsantan L9', [P_IG90]: 'IG-90 L9', [P_BOBA]: 'Boba Fett (Scion of Jango) L9', [P_LEIA]: 'Leia (Jedi Training) L9',
+    [P_ANAKIN]: 'Jedi Knight Anakin L9', [P_GKEN]: 'General Kenobi L9',
   };
+  // "Off. on Debuff Expiry": the Unaligned Force User perk the guides give Starkiller and Baylan. About as good as Def. Stacking for Baylan.
+  const P_UFUOFF = 'datacron_faction_generic_032';
+  PERKS[P_UFUOFF] = 'Unaligned Force User L6 "Off. on Debuff Expiry"';
+  const GUIDES = 'ahnaldt101.com and swgoh4.life';
   const FACTS = [
     { side: 'def', lead: 'BAYLANSKOLL', units: ['SHINHATI'], base: 0.488, top: 0.264, n: 7735, best: [P_SHIN, P_DS, P_UFU],
-      perks: [{ id: P_SHIN, gain: 19 }, { id: P_DS, gain: 18 }, { id: P_UFU, gain: 17 }] },
+      perks: [{ id: P_SHIN, gain: 19 }, { id: P_DS, gain: 18 }, { id: P_UFU, gain: 17 }, { id: P_UFUOFF, gain: 15 }] },
+    // Set 36 only has a few weeks of data. Jabba is the one set 36 recipe with enough battles to show a clear lift (`early`: small sample).
+    { side: 'def', lead: 'JABBATHEHUTT', early: true, base: 0.850, top: 0.560, n: 166, best: [P_KRR, P_DOUBT],
+      perks: [{ id: P_KRR, gain: 29 }, { id: P_DOUBT, gain: 21.6 }] },
     { side: 'def', lead: 'THIRDSISTER', base: 0.759, top: 0.569, n: 6069, best: [P_DS, P_UFU],
       perks: [{ id: P_DS, gain: 11.5 }, { id: P_UFU, gain: 7.5 }] },
     { side: 'def', lead: 'GREATMOTHERS', base: 0.784, top: 0.680, n: 29392, best: [P_DS],
@@ -38,6 +55,16 @@
       perks: [{ id: P_MAL, gain: 2.2 }, { id: P_UFU, gain: 2.8 }] },
     { side: 'off', lead: 'STRANGER', base: 0.905, top: 0.927, n: 18084, best: [P_DS],
       perks: [{ id: P_DS, gain: 2.2 }, { id: P_UFU, gain: 2.0 }] },
+    // Recommended by the community guides, not yet measured in Insight (no rates shown). Each perk counts for little when picking
+    // crons, so a measured recipe always wins a cron over one of these.
+    ...[
+      { lead: 'GRANDMASTERLUKE', units: ['LEIAJEDITRAINING'], best: [P_LS50, P_JEDI100, P_LEIA] },
+      { lead: 'QUEENAMIDALA', units: ['ANAKINKNIGHT'], best: [P_LS50, P_JEDI100, P_ANAKIN] },
+      { lead: 'JEDIMASTERKENOBI', units: ['GENERALKENOBI'], best: [P_LS50, P_JEDI100, P_GKEN] },
+      { lead: 'BOBAFETTSCION', best: [P_DOUBT, P_BHPAY, P_BOBA] },
+      { lead: 'LORDVADER', best: [P_DSDOT] },
+    ].flatMap(g => ['def', 'off'].map(side => Object.assign({ side, src: 'guides', perks: g.best.map(id => ({ id, gain: 1 })) }, g))),
+    { side: 'def', lead: 'DOCTORAPHRA', src: 'guides', best: [P_DOUBT, P_BHPAY, P_IG90], perks: [P_DOUBT, P_BHPAY, P_IG90].map(id => ({ id, gain: 1 })) },
     ...['SUPREMELEADERKYLOREN', 'GLLEIA', 'DARTHTRAYA', 'JEDIMASTERKENOBI', 'GLAHSOKATANO'].map(lead => ({ side: 'off', lead, none: true, note: 'crons made no measurable difference to this attack' })),
   ];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -498,6 +525,17 @@
     const got = assignCrons(entries, st.crons, st);
     st.dcOff = new Map(offPicks.map((b, i) => [b, got[i]]));
     st.dcDef = got.slice(offPicks.length);
+    // A light byproduct: the recipes this plan wanted that none of your crons fully has. Measured ones rank first, by size of the lift.
+    const wish = new Map();
+    entries.forEach((e, i) => {
+      const r = got[i], f = r && r.fact;
+      if (!f || f.none || !(f.best || []).length || f.best.every(id => (r.cron ? r.ids : []).includes(id))) return;
+      const w = wish.get(f) || { fact: f, leads: [] };
+      if (!w.leads.includes(e.units[0])) w.leads.push(e.units[0]);
+      wish.set(f, w);
+    });
+    const lift = f => (f.src === 'guides' ? -1 : Math.abs(f.base - f.top));
+    st.farm = [...wish.values()].sort((a, b) => (lift(b.fact) - lift(a.fact)) || (b.leads.length - a.leads.length)).slice(0, 5);
     // where every Galactic Legend ended up
     const inDef = new Set(); dc.chosen.forEach(d => d.units.forEach(u => inDef.add(u)));
     const gls = Object.keys(st.owned).filter(b => isGl(b) && !st.isShip(b) && st.can(b));
@@ -533,8 +571,10 @@
       if (r.none) return '<span class="muted">Any cron: ' + esc(f.note) + '</span>';
       if (!f) return r.cron ? 'set ' + r.cron.set_id + ', tier ' + r.cron.tier + '<br><span class="muted">' + esc(r.why.length ? r.why.join(', ') : 'stats only') + ' (no tested recipe)</span>' : '<span class="muted">no cron left</span>';
       const ideal = f.best.map(perkName).join(' + ');
-      const rate = (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0);
-      const proof = '<div class="meta">Ideal: ' + esc(ideal) + '. ' + rate + ' in Kyber (' + f.n.toLocaleString() + ' battles' + (c.squadSize === 5 ? '' : '; measured at 5v5, not yet at 3v3') + ').</div>';
+      const rate = f.src === 'guides' ? '' : (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0);
+      const proof = f.src === 'guides'
+        ? '<div class="meta">Ideal per ' + GUIDES + ': ' + esc(ideal) + '. Not yet measured in Insight.</div>'
+        : '<div class="meta">Ideal: ' + esc(ideal) + '. ' + rate + ' in Kyber (' + f.n.toLocaleString() + ' battles' + (f.early ? ', early data' : '') + (c.squadSize === 5 ? '' : '; measured at 5v5, not yet at 3v3') + ').</div>';
       if (!r.cron || r.gain <= 0) return '<b>No cron of yours has these perks</b>' + proof;
       const have = f.perks.filter(p => r.ids.includes(p.id)).map(p => perkName(p.id)), miss = f.best.filter(id => !r.ids.includes(id)).map(perkName);
       return '<b>Use set ' + r.cron.set_id + ', tier ' + r.cron.tier + '</b><div class="meta">Has ' + esc(have.join(' + ')) + (miss.length ? '. Missing ' + esc(miss.join(' + ')) : '') + '</div>' + proof;
@@ -573,6 +613,10 @@
       + (st.metaOffer && st.metaOffer.length ? '<h2>Meta defenses you can field</h2><p class="muted">The season\'s best-holding squads that you can build from what offense left, judged on Kyber results. Offense avoids their units where it can.</p><div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Kyber hold</th><th class="num">Battles</th><th>In your plan</th></tr></thead><tbody>'
         + st.metaOffer.map(m => '<tr><td><div class="squad">' + sq(m.units) + '</div></td><td class="num">' + pct(m.kyberHold, 0) + '</td><td class="num">' + Math.round(m.kyberN).toLocaleString() + '</td><td>' + (m.inPlan ? 'Yes' : '<span class="muted">No</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '')
       + '<h3>Defense fleets</h3><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
+      + (st.farm && st.farm.length ? '<h3>Crons to consider farming</h3><p class="muted">Recipes this plan wanted that none of your crons fully has, best first.</p><ul>'
+        + st.farm.map(w => { const f = w.fact, side = f.side;
+          return '<li><b>' + esc(f.best.map(perkName).join(' + ')) + '</b> for ' + esc(w.leads.map(nm).join(', ')) + ' <span class="muted">('
+            + (f.src === 'guides' ? 'recommended by ' + GUIDES + ', not yet measured' : (side === 'def' ? 'attackers win ' : 'your win rate ') + pct(f.base, 0) + ' to ' + pct(f.top, 0) + ' in Kyber' + (f.early ? ', early data' : '')) + ')</span></li>'; }).join('') + '</ul>' : '')
       + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. Cron recipes were measured in Kyber 5v5 on ' + FACTS_DATE + '. '
       + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests' + (G.cached ? ' (' + G.cached + ' answers reused from the last 12 hours)' : '') + '. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
