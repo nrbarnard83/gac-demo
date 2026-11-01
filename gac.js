@@ -411,6 +411,38 @@
   };
   G.show = html => overlay(html);
 
+  // The signed-in user's own account(s), so nobody has to type their ally code.
+  G.identity = async () => {
+    try {
+      const d = await dataOf('/api/users/identity/');
+      return d.authenticated ? (d.players || []).map(p => ({ name: p.name, ally: String(p.allyCode) })) : [];
+    } catch (e) { return []; }
+  };
+  const mem = {
+    get: k => { try { return localStorage.getItem('gac.' + k) || ''; } catch (e) { return ''; } },
+    set: (k, v) => { try { localStorage.setItem('gac.' + k, v); } catch (e) { /* private browsing: just do not remember */ } },
+  };
+  G.ask = async () => {
+    const who = await G.identity();
+    let me;
+    if (who.length === 1) me = who[0].ally;
+    else if (who.length > 1) {
+      const pick = prompt('Which account?\n' + who.map((p, i) => (i + 1) + ': ' + p.name).join('\n'), '1');
+      if (pick === null) return;
+      me = (who[+pick - 1] || who[0]).ally;
+    } else {
+      me = prompt('Your ally code (could not read it from your login)', mem.get('me'));
+      if (!me) return;
+    }
+    const opp = prompt('Opponent ally code', mem.get('opp'));
+    if (!opp) return;
+    const size = prompt('Squad size: 3 for 3v3, 5 for 5v5', mem.get('size') || '3');
+    if (!size) return;
+    const clean = s => String(s).replace(/[^0-9]/g, '');
+    mem.set('me', clean(me)); mem.set('opp', clean(opp)); mem.set('size', String(+size));
+    return G.run({ me: clean(me), opp: clean(opp), squadSize: +size });
+  };
+
   G.run = async cfg => {
     G.setup(cfg);
     const box = document.createElement('div');
