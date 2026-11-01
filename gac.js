@@ -6,6 +6,7 @@
   'use strict';
   const G = (window.GAC = { v: 1, cfg: null, st: {}, log: [] });
   const SOLID = 0.75, GL_BONUS = 20000;
+  const SUPPORT = 'https://ko-fi.com/croder';  // tip jar link; the Support button stays hidden if this is empty
   const PROTECT_COST = 150000;  // spending a unit that a top meta defense needs counts like this much extra power on offense
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const tnow = () => performance.now();
@@ -453,6 +454,12 @@
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding:8px;background:#111';
     const mk = (t, f) => { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'padding:6px 12px;font:14px system-ui;cursor:pointer'; b.onclick = f; return b; };
+    if (SUPPORT) {  // in the overlay bar, not in the report, so a downloaded or shared report stays clean
+      const a = document.createElement('a');
+      a.href = SUPPORT; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Support this project';
+      a.style.cssText = 'margin-right:auto;padding:6px 14px;font:700 14px system-ui;background:#ff5e5b;color:#fff;border-radius:6px;text-decoration:none';
+      bar.append(a);
+    }
     if (G.cfg && G.cfg.auto) bar.append(mk('Choose another opponent', () => { w.remove(); G.ask({ manual: true }); }));
     bar.append(mk('Download page', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'gac-plan.html'; a.click(); }), mk('Close', () => w.remove()));
     const f = document.createElement('iframe'); f.srcdoc = html; f.style.cssText = 'flex:1;border:0;background:#fff';

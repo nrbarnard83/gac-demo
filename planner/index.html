@@ -13,12 +13,19 @@ main{max-width:740px;margin:0 auto;padding:32px 16px 72px}h1{font-size:30px;marg
 .steps>li:before{content:counter(s);position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:28px;font-weight:700}
 a.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:12px 20px;cursor:grab;margin:6px 0}
 button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.support{border-left:5px solid #ff5e5b}.support p{margin:4px 0 10px}a.tip{display:inline-block;background:#ff5e5b;color:#fff;text-decoration:none;font-weight:700;border-radius:8px;padding:10px 18px}
 code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;height:92px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
 dt{font-weight:700;margin-top:10px}dd{margin:2px 0 0 0;color:var(--muted)}ul{padding-left:22px}li{margin:4px 0}
 </style></head><body><main>
 <h1>GAC Counter Planner</h1>
 <p class="muted">Give it your ally code and an opponent's. It predicts what that opponent will put on defense, picks counters that really win, and then builds your own defense from the units you have left. It runs inside your browser with your own swgoh.gg login. Nothing is uploaded and nothing is stored.</p>
 <p><a href="../">See a sample report first</a></p>
+
+<div class="card support" id="support" hidden>
+<b>Free to use, and built by a guild leader in his spare time.</b>
+<p class="muted">If it saves you time in GAC, a small tip is welcome and never expected. Everything works the same either way.</p>
+<a class="tip" id="tip" href="#" target="_blank" rel="noopener">Support this project</a>
+</div>
 
 <div class="card"><b>Before you start, you need</b>
 <ul><li>A swgoh.gg account that can open <b>GAC Insight</b> (a Player+ subscriber, or a member of a guild with Guild Patron).</li>
@@ -90,6 +97,8 @@ It starts straight away with no questions. The report has a <b>Choose another op
 <script>
 (function(){
   var SRC='https://nrbarnard83.github.io/gac-demo/gac.js';  // where gac.js is hosted
+  var SUPPORT='https://ko-fi.com/croder';  // tip jar link; the support card stays hidden if this is empty
+  if(SUPPORT){var t=document.getElementById('tip');t.href=SUPPORT;document.getElementById('support').hidden=false;}
   var body="(async()=>{if(!location.hostname.endsWith('swgoh.gg')){alert('Open a swgoh.gg page first, then click again.');return}"
    +"if(!window.GAC){await new Promise(function(ok,no){var s=document.createElement('script');s.src='"+SRC+"?'+Date.now();s.onload=ok;s.onerror=no;document.head.append(s)})}"
    +"GAC.ask()})()";  // all the asking happens in gac.js, so improvements never need a new bookmark
