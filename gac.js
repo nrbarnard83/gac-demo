@@ -21,7 +21,7 @@
   const gate = { next: 0 };
   const polite = async u => {
     for (let attempt = 0; attempt < 6; attempt++) {
-      const slot = Math.max(Date.now(), gate.next); gate.next = slot + 150;
+      const slot = Math.max(Date.now(), gate.next); gate.next = slot + 300;
       if (slot > Date.now()) await sleep(slot - Date.now());
       G.calls++;
       const r = await fetch(u, { credentials: 'same-origin' });
@@ -34,7 +34,24 @@
     }
     throw new Error('swgoh.gg is limiting requests right now. Wait a few minutes and try again.');
   };
-  const rawJson = async u => { const r = await polite(u); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
+  // Insight answers change slowly, so they are remembered in the browser for 12 hours. A second run, or a run against
+  // someone who shares your opponent's leads, then makes far fewer requests to swgoh.gg.
+  const CACHE_HOURS = 12;
+  const cachedGet = async u => {
+    const insight = /[/]api[/]v1[/]gac[/]battle[/]battles[/]/.test(u);
+    let cache = null;
+    if (insight) { try { cache = await caches.open('gac-insight-v1'); } catch (e) { cache = null; } }
+    if (cache) {
+      const hit = await cache.match(u).catch(() => null);
+      if (hit && Date.now() - (+hit.headers.get('x-gac-time') || 0) < CACHE_HOURS * 3600e3) { G.cached = (G.cached || 0) + 1; return hit; }
+    }
+    const r = await polite(u);
+    if (cache && r.ok) {
+      try { await cache.put(u, new Response(await r.clone().blob(), { headers: { 'x-gac-time': String(Date.now()), 'content-type': 'application/json' } })); } catch (e) { /* storage full or blocked: carry on without the cache */ }
+    }
+    return r;
+  };
+  const rawJson = async u => { const r = await cachedGet(u); if (!r.ok) throw new Error(u + ' returned ' + r.status); return r.json(); };
   const dataOf = async u => { const j = await rawJson(u); return j.data || j; };
   const page = async u => new DOMParser().parseFromString(await (await polite(u)).text(), 'text/html');
   const disjoint = (set, arr) => { for (const x of arr) if (set.has(x)) return false; return true; };
@@ -461,7 +478,7 @@
         + st.metaOffer.map(m => '<tr><td><div class="squad">' + sq(m.units) + '</div></td><td class="num">' + pct(m.hold, 0) + '</td><td class="num">' + Math.round(m.seen).toLocaleString() + '</td><td class="num">' + (m.kyberHold == null ? '<span class="muted">n/a</span>' : pct(m.kyberHold, 0)) + '</td><td>' + (m.inPlan ? 'Yes' : '<span class="muted">No</span>') + '</td></tr>').join('') + '</tbody></table></div>' : '')
       + '<h2>Defense fleets</h2><div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody>' + fleetRows + '</tbody></table></div>'
       + '<footer>Generated in your browser from your own swgoh.gg session. Nothing was uploaded. Defense candidates came from ' + esc(st.dSource || 'your strongest units') + '. '
-      + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
+      + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests' + (G.cached ? ' (' + G.cached + ' answers reused from the last 12 hours)' : '') + '. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
 
   // ---------------------------------------------------------------- full run with a progress box and a report overlay
@@ -626,7 +643,7 @@
     document.body.append(box);
     G.ui = m => { box.textContent = m + ' ...'; };
     try {
-      G.calls = 0; G.t0 = tnow();
+      G.calls = 0; G.cached = 0; G.t0 = tnow();
       await G.stage1(); await G.stageDefense(); await G.stageCounters(); await G.stageFleetOptions(); await G.stageMeta();
       G.planOffense(); await G.stageCharOptions(); G.planDefense();
       G.secs = Math.round((tnow() - G.t0) / 1000);
