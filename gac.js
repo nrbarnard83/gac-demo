@@ -444,6 +444,25 @@
     } catch (e) { return null; }
   };
 
+  // 3v3 or 5v5, from swgoh.gg's season calendar: the size of the week that is on now, or else of the next season
+  // (seasons are three weeks long and alternate between the two sizes).
+  G.detectSquadSize = async () => {
+    try {
+      const d = await dataOf('/api/v1/gac/config-data/');
+      const now = Date.now(), t = s => Date.parse(String(s).replace(' ', 'T'));
+      let latest = null;
+      for (const s of (d.seasons || [])) for (const e of (s.events || [])) {
+        const st = t(e.startTime), en = t(e.endTime);
+        if (st <= now && now < en) return { size: +s.squadSize, why: s.name + ' week ' + e.eventNumber + ' is on now' };
+        if (st <= now && (!latest || st > latest.st)) latest = { st, s, e };
+      }
+      if (!latest) return null;
+      const seasonOver = latest.e.eventNumber >= (latest.s.events || []).length;
+      const size = seasonOver ? (+latest.s.squadSize === 3 ? 5 : 3) : +latest.s.squadSize;
+      return { size, why: seasonOver ? latest.s.name + ' is over, so the next season is ' + size + 'v' + size : latest.s.name + ' continues' };
+    } catch (e) { return null; }
+  };
+
   G.ask = async () => {
     const who = await G.identity();
     let me;
@@ -457,24 +476,28 @@
       if (!me) return;
     }
     const clean = s => String(s).replace(/[^0-9]/g, '');
+    const det = await G.detectSquadSize();
+    let size = det ? det.size : (+mem.get('size') || 3);
+    const sizeLine = 'Planning for ' + size + 'v' + size + (det ? ' (' + det.why + ')' : '') + '. To use the other size, add a space and 3 or 5 after your answer, like "1 5".';
     let opp = '';
     const cur = await G.currentOpponents(clean(me));
     const list = cur ? cur.opps.concat(cur.others) : [];
+    let pick;
     if (list.length) {
       const age = cur.ageDays < 1 ? 'today' : Math.round(cur.ageDays) + ' days ago';
       const lines = list.map((o, i) => (i + 1) + ': ' + o.name + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ', in your bracket'));
-      const pick = prompt('Season ' + cur.season + ' week ' + cur.week + ' (started ' + age + ')\nWho do you want to plan against? Type a number, or an ally code.\n\n' + lines.join('\n'), '1');
-      if (pick === null) return;
-      const n = +pick;
-      opp = n >= 1 && n <= list.length && String(n) === pick.trim() ? list[n - 1].ally : clean(pick);
+      pick = prompt('Your latest GAC week: season ' + cur.season + ' week ' + cur.week + ' (started ' + age + ')\nWho do you want to plan against? Type a number, or an ally code.\n' + sizeLine + '\n\n' + lines.join('\n'), '1');
     } else {
-      opp = clean(prompt('Opponent ally code', mem.get('opp')) || '');
+      pick = prompt('Opponent ally code\n' + sizeLine, mem.get('opp'));
     }
+    if (pick === null || !String(pick).trim()) return;
+    const parts = String(pick).trim().split(/\s+/);
+    if (parts[1] === '3' || parts[1] === '5') size = +parts[1];
+    const n = +parts[0];
+    opp = list.length && n >= 1 && n <= list.length && String(n) === parts[0] ? list[n - 1].ally : clean(parts[0]);
     if (!opp) return;
-    const size = prompt('Squad size: 3 for 3v3, 5 for 5v5', mem.get('size') || '3');
-    if (!size) return;
-    mem.set('me', clean(me)); mem.set('opp', opp); mem.set('size', String(+size));
-    return G.run({ me: clean(me), opp, squadSize: +size });
+    mem.set('me', clean(me)); mem.set('opp', opp); mem.set('size', String(size));
+    return G.run({ me: clean(me), opp, squadSize: size });
   };
 
   G.run = async cfg => {
