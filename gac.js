@@ -387,7 +387,8 @@
     const dropped = st.dropped.length ? '<h2>Dropped from the plan</h2><p class="muted">Rare under live datacron sets, so they most likely only worked with an expired one:</p><ul>' + st.dropped.map(x => '<li>' + sq(x.squad) + ' <span class="muted">(' + x.battles + ' battles under live sets)</span></li>').join('') + '</ul>' : '';
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GAC Counter Planner</title><style>' + CSS + '</style></head><body><main>'
       + '<h1>GAC Counter Planner</h1><p class="lead">Predicted from the most recent ' + c.squadSize + 'v' + c.squadSize + ' week. Kyber battles, live datacron sets only.</p>'
-      + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp) + '</div>'
+      + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
+      + (c.auto ? ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)' : '') + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads covered') + tile(solid, 'counters above the 75% safe bound') + tile(pct(spent / all, 0), 'of your unit power spent on offense') + tile(st.freeGLs.length, 'Galactic Legends kept free for defense') + '</div>'
       + '<h2>Offense: character squads</h2><div class="scroll">' + head + offRows(false) + '</tbody></table></div>'
       + '<h2>Offense: fleets</h2><div class="scroll">' + head + offRows(true) + '</tbody></table></div>' + dropped
@@ -405,6 +406,7 @@
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding:8px;background:#111';
     const mk = (t, f) => { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'padding:6px 12px;font:14px system-ui;cursor:pointer'; b.onclick = f; return b; };
+    if (G.cfg && G.cfg.auto) bar.append(mk('Choose another opponent', () => { w.remove(); G.ask({ manual: true }); }));
     bar.append(mk('Download page', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'gac-plan.html'; a.click(); }), mk('Close', () => w.remove()));
     const f = document.createElement('iframe'); f.srcdoc = html; f.style.cssText = 'flex:1;border:0;background:#fff';
     w.append(bar, f); document.body.append(w);
@@ -463,7 +465,35 @@
     } catch (e) { return null; }
   };
 
-  G.ask = async () => {
+  // One click: when a GAC week is on, the opponent of the current round, read from your GAC history.
+  // Rounds last two days (a week is six days, three rounds); if that round has no opponent listed yet, the newest listed one is used.
+  G.autoOpponent = async (me, opt = {}) => {
+    try {
+      const now = opt.now || Date.now(), t = s => Date.parse(String(s).replace(' ', 'T'));
+      const d = await dataOf('/api/v1/gac/config-data/');
+      let live = null;
+      for (const s of (d.seasons || [])) for (const e of (s.events || [])) if (t(e.startTime) <= now && now < t(e.endTime)) live = { s, e, start: t(e.startTime) };
+      if (!live) return null;
+      const brs = await dataOf('/api/v2/gac/brackets/recent/' + me + '/');
+      const b = (Array.isArray(brs) ? brs : []).find(x => x.eventId === live.e.id);
+      if (!b) return null;
+      const byName = new Map(b.bracketPlayers.map(p => [p.playerName, p]));
+      const doc = await page('/p/' + me + '/gac-history/');
+      const rows = new Map();
+      for (const a of doc.querySelectorAll('a[href*="gac-history/' + live.e.id + '/"]')) {
+        const m = a.getAttribute('href').match(/[/]([0-9])[/]$/), text = norm(a.textContent);
+        const name = [...byName.keys()].filter(n => text.startsWith(n)).sort((x, y) => y.length - x.length)[0];
+        if (m && name) rows.set(+m[1], name);
+      }
+      if (!rows.size) return null;
+      const expected = Math.min(3, Math.floor((now - live.start) / (2 * 864e5)) + 1);
+      const round = rows.has(expected) ? expected : Math.max(...rows.keys());
+      const p = byName.get(rows.get(round));
+      return { name: p.playerName, ally: String(p.allyCode), guild: p.guildName || '', round, size: +live.s.squadSize, season: live.s.name };
+    } catch (e) { return null; }
+  };
+
+  G.ask = async (opts = {}) => {
     const who = await G.identity();
     let me;
     if (who.length === 1) me = who[0].ally;
@@ -476,6 +506,10 @@
       if (!me) return;
     }
     const clean = s => String(s).replace(/[^0-9]/g, '');
+    if (!opts.manual) {  // a GAC week is on and your history shows who you face: no questions at all
+      const auto = await G.autoOpponent(clean(me), opts);
+      if (auto) { mem.set('me', clean(me)); return G.run({ me: clean(me), opp: auto.ally, squadSize: auto.size, auto }); }
+    }
     const det = await G.detectSquadSize();
     let size = det ? det.size : (+mem.get('size') || 3);
     const sizeLine = 'Planning for ' + size + 'v' + size + (det ? ' (' + det.why + ')' : '') + '. To use the other size, add a space and 3 or 5 after your answer, like "1 5".';
