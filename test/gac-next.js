@@ -708,7 +708,9 @@
         if (st <= now && (!latest || st > latest.st)) latest = { st, s, e };
       }
       if (!latest) return null;
-      const seasonOver = latest.e.eventNumber >= (latest.s.events || []).length;
+      // swgoh.gg lists a season's weeks only as they are scheduled (Season 85 showed one week on its second week), so the list
+      // length cannot say when a season ends: seasons are always three weeks long.
+      const seasonOver = latest.e.eventNumber >= Math.max(3, (latest.s.events || []).length);
       const size = seasonOver ? (+latest.s.squadSize === 3 ? 5 : 3) : +latest.s.squadSize;
       return { size, why: seasonOver ? latest.s.name + ' is over, so the next season is ' + size + 'v' + size : latest.s.name + ' continues' };
     } catch (e) { return null; }
