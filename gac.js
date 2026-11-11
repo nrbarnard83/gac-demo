@@ -18,9 +18,10 @@
   // gain in points, used to pick the best of your crons; `best` is the ideal combination; `early` means a small sample; `src: guides`
   // means recommended by the community guides but not yet measured.
   // BEGIN GENERATED FACTS (from gac/cron_targets.json by gac/cron_tools.py gen-facts; edit that file, not this block)
-  const FACTS_DATE = '2026-11-01';
+  const FACTS_DATE = '2026-11-11';
   const PERKS = {
     "datacron_character_generic_032": "Jedi Knight Anakin L9",
+    "datacron_faction_generic_007": "Bounty Hunter L6 \"10% DMG on debuff\"",
     "datacron_faction_bountyhunter_004": "Bounty Hunter L6 \"Payout at 0 Prot.\"",
     "datacron_character_bobafettscion_002": "Boba Fett (Scion of Jango) L9",
     "datacron_alignment_dark_001": "Dark Side L3 \"Doubt\"",
@@ -34,33 +35,54 @@
     "datacron_alignment_generic_021": "Light Side L3 \"+25% turn meter\"",
     "datacron_alignment_light_001": "Light Side L3 \"50% Prot. Up\"",
     "datacron_character_taronmalicos_002": "Taron Malicos L9",
+    "datacron_character_marajade_001": "Mara Jade, The Emperor's Hand L9",
     "datacron_character_shinhati_001": "Shin Hati L9",
+    "datacron_character_starkiller_001": "Starkiller L9",
     "datacron_faction_ufu_001": "Unaligned Force User L6 \"Def. Stacking\"",
     "datacron_faction_generic_032": "Unaligned Force User L6 \"Off. on Debuff Expiry\"",
   };
   const FACTS = [
+    {"side": "def", "lead": "BAYLANSKOLL", "units": ["SHINHATI"], "size": 3, "base": 0.703, "top": 0.614, "n": 2658, "best": ["datacron_alignment_generic_034", "datacron_character_shinhati_001", "datacron_faction_generic_032"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 4.6}, {"id": "datacron_character_shinhati_001", "gain": 5.0}, {"id": "datacron_faction_generic_032", "gain": 6.1}, {"id": "datacron_faction_ufu_001", "gain": 3.1}]},
     {"side": "def", "lead": "BAYLANSKOLL", "units": ["SHINHATI"], "size": 5, "base": 0.488, "top": 0.264, "n": 7735, "best": ["datacron_alignment_generic_034", "datacron_character_shinhati_001", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 17.8}, {"id": "datacron_character_shinhati_001", "gain": 18.9}, {"id": "datacron_faction_ufu_001", "gain": 17.5}, {"id": "datacron_faction_generic_032", "gain": 9.6}]},
     {"side": "def", "lead": "THIRDSISTER", "size": 5, "base": 0.759, "top": 0.569, "n": 6069, "best": ["datacron_alignment_generic_034", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 11.5}, {"id": "datacron_faction_ufu_001", "gain": 9.5}]},
+    {"side": "def", "lead": "GREATMOTHERS", "size": 3, "base": 0.731, "top": 0.575, "n": 1408, "best": ["datacron_alignment_generic_034", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 14.7}, {"id": "datacron_faction_ufu_001", "gain": 14.6}]},
     {"side": "def", "lead": "GREATMOTHERS", "size": 5, "base": 0.784, "top": 0.68, "n": 29392, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 10.4}, {"id": "datacron_faction_ufu_001", "gain": 8.6}]},
+    {"side": "def", "lead": "STRANGER", "size": 3, "base": 0.597, "top": 0.552, "n": 22061, "best": ["datacron_character_starkiller_001"], "perks": [{"id": "datacron_character_starkiller_001", "gain": 4.5}, {"id": "datacron_alignment_generic_034", "gain": 4.1}, {"id": "datacron_faction_ufu_001", "gain": 4.1}]},
     {"side": "def", "lead": "STRANGER", "size": 5, "none": true, "note": "crons made no measurable difference to this defense"},
     {"side": "def", "lead": "GLREY", "size": 5, "base": 0.848, "top": 0.543, "n": 880, "best": ["datacron_faction_ufu_001"], "early": true, "perks": [{"id": "datacron_faction_ufu_001", "gain": 30.5}, {"id": "datacron_alignment_generic_021", "gain": 0.3}]},
+    {"side": "def", "lead": "JABBATHEHUTT", "size": 3, "base": 0.695, "top": 0.546, "n": 11873, "best": ["datacron_alignment_dark_001", "datacron_character_generic_048"], "perks": [{"id": "datacron_alignment_dark_001", "gain": 12.4}, {"id": "datacron_character_generic_048", "gain": 12.7}, {"id": "datacron_faction_generic_007", "gain": 0.7}]},
     {"side": "def", "lead": "JABBATHEHUTT", "size": 5, "base": 0.85, "top": 0.56, "n": 166, "best": ["datacron_character_generic_048"], "early": true, "perks": [{"id": "datacron_character_generic_048", "gain": 29.0}, {"id": "datacron_alignment_dark_001", "gain": 21.6}]},
     {"side": "def", "lead": "GRANDMASTERLUKE", "units": ["LEIAJEDITRAINING"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_jeditrainingleia_001"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_jeditrainingleia_001", "gain": 1}]},
-    {"side": "def", "lead": "LORDVADER", "src": "guides", "best": ["datacron_alignment_generic_020"], "perks": [{"id": "datacron_alignment_generic_020", "gain": 1}]},
+    {"side": "def", "lead": "LORDVADER", "size": 3, "base": 0.668, "top": 0.607, "n": 4612, "best": ["datacron_alignment_generic_020"], "perks": [{"id": "datacron_alignment_generic_020", "gain": 6.1}]},
     {"side": "def", "lead": "DOCTORAPHRA", "src": "guides", "best": ["datacron_alignment_dark_001", "datacron_faction_bountyhunter_004", "datacron_character_ig90_002"], "perks": [{"id": "datacron_alignment_dark_001", "gain": 1}, {"id": "datacron_faction_bountyhunter_004", "gain": 1}, {"id": "datacron_character_ig90_002", "gain": 1}]},
     {"side": "def", "lead": "BOBAFETTSCION", "src": "guides", "best": ["datacron_alignment_dark_001", "datacron_faction_bountyhunter_004", "datacron_character_bobafettscion_002"], "perks": [{"id": "datacron_alignment_dark_001", "gain": 1}, {"id": "datacron_faction_bountyhunter_004", "gain": 1}, {"id": "datacron_character_bobafettscion_002", "gain": 1}]},
     {"side": "def", "lead": "JEDIMASTERKENOBI", "units": ["GENERALKENOBI"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_003"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_003", "gain": 1}]},
     {"side": "def", "lead": "QUEENAMIDALA", "units": ["ANAKINKNIGHT"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_032"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_032", "gain": 1}]},
     {"side": "off", "lead": "DOCTORAPHRA", "size": 5, "base": 0.844, "top": 0.9, "n": 9484, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 5.6}, {"id": "datacron_faction_ufu_001", "gain": 3.6}]},
+    {"side": "off", "lead": "CEREJUNDA", "units": ["TARONMALICOS"], "size": 3, "base": 0.9, "top": 0.946, "n": 11531, "best": ["datacron_character_taronmalicos_002", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_character_taronmalicos_002", "gain": 2.9}, {"id": "datacron_faction_ufu_001", "gain": 2.3}]},
     {"side": "off", "lead": "CEREJUNDA", "units": ["TARONMALICOS"], "size": 5, "base": 0.905, "top": 0.955, "n": 13415, "best": ["datacron_character_taronmalicos_002", "datacron_faction_ufu_001"], "perks": [{"id": "datacron_character_taronmalicos_002", "gain": 2.2}, {"id": "datacron_faction_ufu_001", "gain": 2.5}]},
+    {"side": "off", "lead": "STRANGER", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "STRANGER", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "SATELESHAN", "size": 5, "none": true, "note": "the cron perks tested made this attack worse (early data)"},
     {"side": "off", "lead": "QUEENAMIDALA", "units": ["ANAKINKNIGHT"], "src": "guides", "best": ["datacron_alignment_light_001", "datacron_faction_generic_025", "datacron_character_generic_032"], "perks": [{"id": "datacron_alignment_light_001", "gain": 1}, {"id": "datacron_faction_generic_025", "gain": 1}, {"id": "datacron_character_generic_032", "gain": 1}]},
+    {"side": "off", "lead": "SUPREMELEADERKYLOREN", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "SUPREMELEADERKYLOREN", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "GLLEIA", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "DARTHTRAYA", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "JEDIMASTERKENOBI", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
     {"side": "off", "lead": "GLAHSOKATANO", "size": 5, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "def", "lead": "KELLERANBEQ", "src": "guides", "best": ["datacron_alignment_generic_021"], "perks": [{"id": "datacron_alignment_generic_021", "gain": 1}]},
+    {"side": "def", "lead": "GLAHSOKATANO", "size": 3, "base": 0.736, "top": 0.635, "n": 458, "best": ["datacron_alignment_light_001", "datacron_faction_generic_025"], "perks": [{"id": "datacron_alignment_light_001", "gain": 7.0}, {"id": "datacron_faction_generic_025", "gain": 4.2}]},
+    {"side": "def", "lead": "DARTHJARJAR", "size": 3, "base": 0.766, "top": 0.636, "n": 1018, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 13.1}]},
+    {"side": "def", "lead": "JEDIKNIGHTLUKE", "src": "guides", "best": ["datacron_alignment_generic_021"], "perks": [{"id": "datacron_alignment_generic_021", "gain": 1}]},
+    {"side": "def", "lead": "EMPERORPALPATINE", "size": 3, "base": 0.823, "top": 0.778, "n": 8553, "best": ["datacron_alignment_generic_034"], "perks": [{"id": "datacron_alignment_generic_034", "gain": 4.5}, {"id": "datacron_character_marajade_001", "gain": 1.3}]},
+    {"side": "off", "lead": "BAYLANSKOLL", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "SITHPALPATINE", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "MANDALORBOKATAN", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "LORDVADER", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "DARTHMALGUS", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "GRANDMASTERLUKE", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
+    {"side": "off", "lead": "MAZKANATA", "size": 3, "none": true, "note": "crons made no measurable difference to this attack"},
   ];
   // END GENERATED FACTS
   const GUIDES = 'ahnaldt101.com and swgoh4.life';
@@ -686,7 +708,9 @@
         if (st <= now && (!latest || st > latest.st)) latest = { st, s, e };
       }
       if (!latest) return null;
-      const seasonOver = latest.e.eventNumber >= (latest.s.events || []).length;
+      // swgoh.gg lists a season's weeks only as they are scheduled (Season 85 showed one week on its second week), so the list
+      // length cannot say when a season ends: seasons are always three weeks long.
+      const seasonOver = latest.e.eventNumber >= Math.max(3, (latest.s.events || []).length);
       const size = seasonOver ? (+latest.s.squadSize === 3 ? 5 : 3) : +latest.s.squadSize;
       return { size, why: seasonOver ? latest.s.name + ' is over, so the next season is ' + size + 'v' + size : latest.s.name + ' continues' };
     } catch (e) { return null; }
