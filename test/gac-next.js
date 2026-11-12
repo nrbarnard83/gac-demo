@@ -200,14 +200,12 @@
     }
     evs.sort((a, b) => +b.slice(1) - +a.slice(1));
     const charSquad = b => !st.isFleet(b.lead);
-    // A defense nobody attacked never shows up in the history, so one week often shows only part of their board. Weeks are read
-    // newest first and blended (up to three, none more than six weeks older than the newest) until a full board has been seen.
+    // Only the single latest week is used: older weeks are stale (other datacron sets, other meta). A defense nobody attacked never shows
+    // up in the history, so one week can show only part of their board, which the report says plainly.
     const board = new Map(), used = [];
-    let newest = null;
     const charCount = () => [...board.values()].filter(e => !st.isFleet(e.squad[0])).length;
     for (const ev of evs.slice(0, 12)) {
-      if (used.length >= 3 || (used.length && charCount() >= c.dChars)) break;
-      if (newest && +newest.slice(1) - +ev.slice(1) > 42 * 864e5) break;
+      if (used.length) break;
       const probe = await G.parseRound(base, ev, 2);
       if (!probe.battles.some(b => charSquad(b) && b.units.length === c.squadSize)) continue;  // wrong squad size (3v3 vs 5v5) or empty
       say('Using the ' + new Date(+ev.slice(1)).toISOString().slice(0, 10) + ' week (' + c.squadSize + 'v' + c.squadSize + ')');
@@ -228,15 +226,26 @@
         }
         board.set(k, e);
       }
-      used.push(ev); if (!newest) newest = ev;
+      used.push(ev);
     }
     if (used.length) {
       st.event = used[0];
       // the datacron perks they most often put on each squad, so you can see what you are facing
       st.board = [...board.values()].map(e => ({ squad: e.squad, seen: e.rounds.size, sets: Object.keys(e.sets).map(Number).sort((a, b) => a - b),
         perks: (Object.values(e.crons).sort((a, b) => b.n - a.n)[0] || { perks: [] }).perks }));
-      st.boardInfo = { weeks: used.length, rounds: used.length * 3, chars: charCount(), expected: c.dChars };
-      return { owner: st.owner, event: used[0], weeks: used.length, squads: st.board.length };
+      // is that week from the current season? Older seasons had other datacron sets and a different meta, so they say little about now.
+      let stale = false, seasonName = '';
+      try {
+        const cfg = await dataOf('/api/v1/gac/config-data/'), t = s => Date.parse(String(s).replace(' ', 'T'));
+        let latest = null;
+        for (const sn of (cfg.seasons || [])) if (+sn.squadSize === c.squadSize) {
+          const starts = (sn.events || []).map(e => t(e.startTime)).filter(x => x <= Date.now());
+          if (starts.length && (!latest || Math.min(...starts) > latest.start)) latest = { start: Math.min(...starts), name: sn.name };
+        }
+        if (latest) { seasonName = latest.name; stale = +used[0].slice(1) < latest.start - 864e5; }
+      } catch (e) { /* no calendar: no warning */ }
+      st.boardInfo = { weeks: 1, rounds: 3, chars: charCount(), expected: c.dChars, date: new Date(+used[0].slice(1)).toISOString().slice(0, 10), stale, seasonName };
+      return { owner: st.owner, event: used[0], weeks: 1, squads: st.board.length, stale };
     }
     throw new Error('No recent ' + c.squadSize + 'v' + c.squadSize + ' week with data found for that opponent');
   };
@@ -634,7 +643,8 @@
       + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
       + (c.auto ? (c.auto.stale ? ' (no GAC week is live, so this is the last opponent you faced: ' + esc(c.auto.season) + ', round ' + c.auto.round + ')'
         : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '')
-      + (st.boardInfo ? '<br><span class="muted">Built from ' + st.boardInfo.weeks + ' recent week' + (st.boardInfo.weeks === 1 ? '' : 's') + ' of their history. We saw ' + st.boardInfo.chars + ' of the ~' + st.boardInfo.expected
+      + (st.boardInfo ? (st.boardInfo.stale ? '<br><b class="bad">Out of date:</b> their latest ' + c.squadSize + 'v' + c.squadSize + ' week was ' + st.boardInfo.date + ', before ' + esc(st.boardInfo.seasonName) + ', so these squads come from an older season and may not reflect what they set now.' : '')
+        + '<br><span class="muted">Built from their latest ' + c.squadSize + 'v' + c.squadSize + ' week (' + st.boardInfo.date + '). We saw ' + st.boardInfo.chars + ' of the ~' + st.boardInfo.expected
         + ' character squads on a ' + c.squadSize + 'v' + c.squadSize + ' board' + (st.boardInfo.chars < st.boardInfo.expected ? ': a defense nobody attacked never shows up in the history, so expect squads that are not listed here.' : '.') + '</span>' : '')
       + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads you can counter') + tile(strong, 'Strong counters (safe bound 75%+)') + tile(acceptable, 'Acceptable counters (safe bound 60% to 75%)') + '</div>'
@@ -680,7 +690,7 @@
     add('**DEFENSE, fleets**', st.defFleets.map(d => '- ' + join(d.units) + ' | holds ' + pc(d.hold)));
     add('**Galactic Legends**', ['- offense: ' + (st.glOff.join(', ') || 'none'), '- defense: ' + (st.glDef.join(', ') || 'none'), '- idle: ' + (st.glIdle.join(', ') || 'none')]);
     const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.'
-      + (st.boardInfo ? ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads seen in ' + st.boardInfo.weeks + ' recent week' + (st.boardInfo.weeks === 1 ? '' : 's') + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
+      + (st.boardInfo ? (st.boardInfo.stale ? ' **OUT OF DATE: their latest week was ' + st.boardInfo.date + ', from before ' + st.boardInfo.seasonName + '.**' : '') + ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads seen in their latest week' + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
     const chunks = [];
     let cur = head;
     const push = line => { if (cur.length + 1 + line.length > 1900) { chunks.push(cur); cur = ''; } cur += (cur ? '\n' : '') + line; };
