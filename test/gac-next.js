@@ -200,14 +200,19 @@
     }
     evs.sort((a, b) => +b.slice(1) - +a.slice(1));
     const charSquad = b => !st.isFleet(b.lead);
-    for (const ev of evs.slice(0, 10)) {
+    // A defense nobody attacked never shows up in the history, so one week often shows only part of their board. Weeks are read
+    // newest first and blended (up to three, none more than six weeks older than the newest) until a full board has been seen.
+    const board = new Map(), used = [];
+    let newest = null;
+    const charCount = () => [...board.values()].filter(e => !st.isFleet(e.squad[0])).length;
+    for (const ev of evs.slice(0, 12)) {
+      if (used.length >= 3 || (used.length && charCount() >= c.dChars)) break;
+      if (newest && +newest.slice(1) - +ev.slice(1) > 42 * 864e5) break;
       const probe = await G.parseRound(base, ev, 2);
       if (!probe.battles.some(b => charSquad(b) && b.units.length === c.squadSize)) continue;  // wrong squad size (3v3 vs 5v5) or empty
       say('Using the ' + new Date(+ev.slice(1)).toISOString().slice(0, 10) + ' week (' + c.squadSize + 'v' + c.squadSize + ')');
       const rounds = [];
       for (const rd of [1, 2, 3]) rounds.push(rd === 2 ? probe : await G.parseRound(base, ev, rd));
-      st.event = ev;
-      const board = new Map();
       for (const r of rounds) for (const b of r.battles) {
         let key;
         if (st.isFleet(b.lead)) key = [b.lead, ...b.units.slice(1).sort()];
@@ -215,7 +220,7 @@
         else continue;
         const k = key.join('|');
         const e = board.get(k) || { squad: key, rounds: new Set(), sets: {}, crons: {} };
-        e.rounds.add(r.round);
+        e.rounds.add(ev + ':' + r.round);
         if (b.dc) {
           e.sets[b.dc.set] = (e.sets[b.dc.set] || 0) + 1;
           const ck = b.dc.perks.map(p => p.id).join(','), cc = e.crons[ck] || { n: 0, perks: b.dc.perks };
@@ -223,10 +228,15 @@
         }
         board.set(k, e);
       }
+      used.push(ev); if (!newest) newest = ev;
+    }
+    if (used.length) {
+      st.event = used[0];
       // the datacron perks they most often put on each squad, so you can see what you are facing
       st.board = [...board.values()].map(e => ({ squad: e.squad, seen: e.rounds.size, sets: Object.keys(e.sets).map(Number).sort((a, b) => a - b),
         perks: (Object.values(e.crons).sort((a, b) => b.n - a.n)[0] || { perks: [] }).perks }));
-      return { owner: st.owner, event: ev, squads: st.board.length };
+      st.boardInfo = { weeks: used.length, rounds: used.length * 3, chars: charCount(), expected: c.dChars };
+      return { owner: st.owner, event: used[0], weeks: used.length, squads: st.board.length };
     }
     throw new Error('No recent ' + c.squadSize + 'v' + c.squadSize + ' week with data found for that opponent');
   };
@@ -602,7 +612,7 @@
     const offRows = fleet => st.boardKept.filter(b => st.isFleet(b.squad[0]) === fleet).sort((a, b) => (b.seen - a.seen) || nm(a.squad[0]).localeCompare(nm(b.squad[0]))).map(b => {
       const cd = st.pick.get(b);
       const sets = b.sets.map(s => '<span class="chip' + (st.live.has(s) ? '' : ' old') + '">set ' + s + (st.live.has(s) ? '' : ' expired') + '</span>').join('');
-      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of 3 rounds ' + sets + '</div>' + theirs(b.perks);
+      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of ' + (st.boardInfo ? st.boardInfo.rounds : 3) + ' rounds ' + sets + '</div>' + theirs(b.perks);
       if (!cd) return '<tr><td>' + left + '</td><td colspan="' + (fleet ? 4 : 5) + '" class="bad">No qualifying counter: nothing you can field wins 75% of the time with a 60% safe bound</td></tr>';
       const flags = (cd.second ? '<span class="chip">Galactic Legend: nothing else qualifies</span>' : '')
         + (fleet && cd.meta ? '<span class="chip">uses a meta capital ship: nothing else qualifies</span>' : '')
@@ -623,7 +633,10 @@
       + (c.forName ? '<div class="note">Report for <b>' + esc(c.forName) + '</b>, planned from their roster and datacrons.</div>' : '')
       + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
       + (c.auto ? (c.auto.stale ? ' (no GAC week is live, so this is the last opponent you faced: ' + esc(c.auto.season) + ', round ' + c.auto.round + ')'
-        : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '') + '</div>'
+        : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '')
+      + (st.boardInfo ? '<br><span class="muted">Built from ' + st.boardInfo.weeks + ' recent week' + (st.boardInfo.weeks === 1 ? '' : 's') + ' of their history. We saw ' + st.boardInfo.chars + ' of the ~' + st.boardInfo.expected
+        + ' character squads on a ' + c.squadSize + 'v' + c.squadSize + ' board' + (st.boardInfo.chars < st.boardInfo.expected ? ': a defense nobody attacked never shows up in the history, so expect squads that are not listed here.' : '.') + '</span>' : '')
+      + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads you can counter') + tile(strong, 'Strong counters (safe bound 75%+)') + tile(acceptable, 'Acceptable counters (safe bound 60% to 75%)') + '</div>'
       + '<h2>Attack with: character squads</h2><div class="scroll">' + head(false) + offRows(false) + '</tbody></table></div>'
       + '<h2>Attack with: fleets</h2><div class="scroll">' + head(true) + offRows(true) + '</tbody></table></div>' + dropped
@@ -666,7 +679,8 @@
     add('**DEFENSE, characters** (set these, hold rate)', st.defChars.map((d, i) => '- ' + join(d.units) + ' | holds ' + pc(d.hold) + cron(st.dcDef[i])));
     add('**DEFENSE, fleets**', st.defFleets.map(d => '- ' + join(d.units) + ' | holds ' + pc(d.hold)));
     add('**Galactic Legends**', ['- offense: ' + (st.glOff.join(', ') || 'none'), '- defense: ' + (st.glDef.join(', ') || 'none'), '- idle: ' + (st.glIdle.join(', ') || 'none')]);
-    const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.';
+    const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.'
+      + (st.boardInfo ? ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads seen in ' + st.boardInfo.weeks + ' recent week' + (st.boardInfo.weeks === 1 ? '' : 's') + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
     const chunks = [];
     let cur = head;
     const push = line => { if (cur.length + 1 + line.length > 1900) { chunks.push(cur); cur = ''; } cur += (cur ? '\n' : '') + line; };
