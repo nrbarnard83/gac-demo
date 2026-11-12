@@ -244,7 +244,7 @@
         }
         if (latest) { seasonName = latest.name; stale = +used[0].slice(1) < latest.start - 864e5; }
       } catch (e) { /* no calendar: no warning */ }
-      st.boardInfo = { weeks: 1, rounds: 3, chars: charCount(), expected: c.dChars, date: new Date(+used[0].slice(1)).toISOString().slice(0, 10), stale, seasonName };
+      st.boardInfo = { weeks: 1, rounds: 3, chars: charCount(), fleets: st.board.length - charCount(), expected: c.dChars, date: new Date(+used[0].slice(1)).toISOString().slice(0, 10), stale, seasonName };
       return { owner: st.owner, event: used[0], weeks: 1, squads: st.board.length, stale };
     }
     throw new Error('No recent ' + c.squadSize + 'v' + c.squadSize + ' week with data found for that opponent');
@@ -645,7 +645,7 @@
         : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '')
       + (st.boardInfo ? (st.boardInfo.stale ? '<br><b class="bad">Out of date:</b> their latest ' + c.squadSize + 'v' + c.squadSize + ' week was ' + st.boardInfo.date + ', before ' + esc(st.boardInfo.seasonName) + ', so these squads come from an older season and may not reflect what they set now.' : '')
         + '<br><span class="muted">Built from their latest ' + c.squadSize + 'v' + c.squadSize + ' week (' + st.boardInfo.date + '). We saw ' + st.boardInfo.chars + ' of the ~' + st.boardInfo.expected
-        + ' character squads on a ' + c.squadSize + 'v' + c.squadSize + ' board' + (st.boardInfo.chars < st.boardInfo.expected ? ': a defense nobody attacked never shows up in the history, so expect squads that are not listed here.' : '.') + '</span>' : '')
+        + ' character squads on a ' + c.squadSize + 'v' + c.squadSize + ' board and ' + st.boardInfo.fleets + ' of 3 fleets' + (st.boardInfo.chars < st.boardInfo.expected ? ': a defense nobody attacked never shows up in the history, so expect squads that are not listed here.' : '.') + '</span>' : '')
       + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads you can counter') + tile(strong, 'Strong counters (safe bound 75%+)') + tile(acceptable, 'Acceptable counters (safe bound 60% to 75%)') + '</div>'
       + '<h2>Attack with: character squads</h2><div class="scroll">' + head(false) + offRows(false) + '</tbody></table></div>'
@@ -690,7 +690,7 @@
     add('**DEFENSE, fleets**', st.defFleets.map(d => '- ' + join(d.units) + ' | holds ' + pc(d.hold)));
     add('**Galactic Legends**', ['- offense: ' + (st.glOff.join(', ') || 'none'), '- defense: ' + (st.glDef.join(', ') || 'none'), '- idle: ' + (st.glIdle.join(', ') || 'none')]);
     const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.'
-      + (st.boardInfo ? (st.boardInfo.stale ? ' **OUT OF DATE: their latest week was ' + st.boardInfo.date + ', from before ' + st.boardInfo.seasonName + '.**' : '') + ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads seen in their latest week' + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
+      + (st.boardInfo ? (st.boardInfo.stale ? ' **OUT OF DATE: their latest week was ' + st.boardInfo.date + ', from before ' + st.boardInfo.seasonName + '.**' : '') + ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads and ' + st.boardInfo.fleets + ' of 3 fleets seen in their latest week' + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
     const chunks = [];
     let cur = head;
     const push = line => { if (cur.length + 1 + line.length > 1900) { chunks.push(cur); cur = ''; } cur += (cur ? '\n' : '') + line; };
