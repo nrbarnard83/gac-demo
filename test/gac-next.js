@@ -666,7 +666,7 @@
     add('**DEFENSE, characters** (set these, hold rate)', st.defChars.map((d, i) => '- ' + join(d.units) + ' | holds ' + pc(d.hold) + cron(st.dcDef[i])));
     add('**DEFENSE, fleets**', st.defFleets.map(d => '- ' + join(d.units) + ' | holds ' + pc(d.hold)));
     add('**Galactic Legends**', ['- offense: ' + (st.glOff.join(', ') || 'none'), '- defense: ' + (st.glDef.join(', ') || 'none'), '- idle: ' + (st.glIdle.join(', ') || 'none')]);
-    const head = '**GAC plan vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.';
+    const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.';
     const chunks = [];
     let cur = head;
     const push = line => { if (cur.length + 1 + line.length > 1900) { chunks.push(cur); cur = ''; } cur += (cur ? '\n' : '') + line; };
@@ -676,7 +676,8 @@
       for (const l of s.lines) { if (cur.length + 1 + l.length > 1900) { chunks.push(cur); cur = s.title + ' (cont.)'; } push(l); }
     }
     if (cur) chunks.push(cur);
-    return chunks;
+    // numbered, so nobody pastes message 1 and thinks that is everything (the fleets and the GL summary come last)
+    return chunks.length > 1 ? chunks.map((t, i) => '[' + (i + 1) + '/' + chunks.length + '] ' + t + (i === chunks.length - 1 ? '' : '\n(continued in the next message)')) : chunks;
   };
   const discordPanel = w => {
     const old = w.querySelector('[data-discord]'); if (old) { old.remove(); return; }
