@@ -867,7 +867,7 @@
     let pick;
     if (list.length) {
       const age = cur.ageDays < 1 ? 'today' : Math.round(cur.ageDays) + ' days ago';
-      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ', in your bracket'));
+      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + ' [' + fmtAlly(o.ally) + ']' + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ', in your bracket'));
       pick = prompt('Your latest GAC week: season ' + cur.season + ' week ' + cur.week + ' (started ' + age + ')\nWho do you want to plan against? Type a number, or an ally code.\n' + sizeLine + '\n\n' + lines.join('\n'), '1');
     } else {
       pick = prompt('Opponent ally code\n' + sizeLine, mem.get('opp'));
@@ -886,6 +886,7 @@
   // Their roster, datacrons and bracket are public swgoh.gg data; only the Insight counters use your own login. You give their name or
   // ally code, then pick their opponent from their bracket by name or number (they read the name off the in-game matchup screen).
   const norm2 = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const fmtAlly = a => { const d = String(a || '').replace(/[^0-9]/g, ''); return d.length === 9 ? d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6) : d; };  // 123-456-789
   const pickFrom = (list, text, label) => {  // a number, a name or part of one: returns one item, or null
     const t = String(text).trim(); if (!t) return null;
     const n = +t; if (String(n) === t && n >= 1 && n <= list.length) return list[n - 1];
@@ -895,7 +896,7 @@
     if (!hits.length) hits = list.filter(x => norm2(x.name).includes(k));
     if (hits.length === 1) return hits[0];
     if (hits.length > 1) {
-      const p = prompt('More than one ' + label + ' matches "' + t + '". Type a number:\n' + hits.map((x, i) => (i + 1) + ': ' + x.name).join('\n'), '1');
+      const p = prompt('More than one ' + label + ' matches "' + t + '". Type a number:\n' + hits.map((x, i) => (i + 1) + ': ' + x.name + ' [' + fmtAlly(x.ally) + ']').join('\n'), '1');
       return p === null ? null : (hits[+p - 1] || null);
     }
     return null;
@@ -923,7 +924,7 @@
     const sizeLine = 'Planning for ' + size + 'v' + size + (det ? ' (' + det.why + ')' : '') + '. To use the other size, add a space and 3 or 5 after your answer.';
     let pick;
     if (list.length) {
-      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ''));
+      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + ' [' + fmtAlly(o.ally) + ']' + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ''));
       pick = prompt('Report for ' + target.name + '. Season ' + cur.season + ' week ' + cur.week + '.\nWho is their opponent? Type a number, or the name as it shows in the game.\n' + sizeLine + '\n\n' + lines.join('\n'), '');
     } else pick = prompt('Report for ' + target.name + '. Their opponent\'s ally code?\n' + sizeLine, '');
     if (pick === null || !String(pick).trim()) return;
