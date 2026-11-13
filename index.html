@@ -2,60 +2,119 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GAC Counter Planner</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6672;--line:#e1e5ea;--accent:#2f6fed;--good:#157347;--goodbg:#e3f4ea;--warn:#8a5a00;--warnbg:#fdf0d5;--bad:#b02a37;--chip:#eef1f5;--old:#fbe8e8}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;--good:#6fd39a;--goodbg:#14301f;--warn:#f0c36a;--warnbg:#33290f;--bad:#ff8590;--chip:#212a34;--old:#3a1f23}}
-:root[data-theme="dark"]{--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;--good:#6fd39a;--goodbg:#14301f;--warn:#f0c36a;--warnbg:#33290f;--bad:#ff8590;--chip:#212a34;--old:#3a1f23}
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--muted:#5d6672;--line:#e1e5ea;--accent:#2f6fed;--warnbg:#fdf0d5;--warn:#6b4600}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171c23;--ink:#e8ecf1;--muted:#98a3b0;--line:#27303a;--accent:#6aa0ff;--warnbg:#33290f;--warn:#f0c36a;color-scheme:dark}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:1100px;margin:0 auto;padding:28px 16px 64px}
-h1{font-size:28px;margin:0 0 4px}h2{font-size:20px;margin:36px 0 10px}p.lead{color:var(--muted);margin:0 0 20px;max-width:720px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}.big{font-size:30px;font-weight:700}.small{color:var(--muted);font-size:13px}
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;counter-reset:s;padding:0;list-style:none}
-.steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 14px 14px 52px;position:relative}
-.steps li:before{counter-increment:s;content:counter(s);position:absolute;left:14px;top:14px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:26px;font-weight:700}
-.scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
-table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
-th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}tr:last-child td{border-bottom:0}.num{text-align:right;white-space:nowrap}
-.squad{font-weight:600}.meta{color:var(--muted);font-size:12.5px;margin-top:2px}.muted{color:var(--muted);font-size:12.5px}
-.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:0 8px;margin-left:6px;font-size:12px}.chip.old{background:var(--old)}
-.badge{display:inline-block;border-radius:6px;padding:1px 8px;font-weight:600}.badge.solid{background:var(--goodbg);color:var(--good)}.badge.promising,.badge.marginal{background:var(--warnbg);color:var(--warn)}
-.bad{color:var(--bad);font-weight:600}.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;margin:12px 0}
-ul.tight{margin:6px 0 0;padding-left:20px}footer{color:var(--muted);font-size:13px;margin-top:40px}
+main{max-width:980px;margin:0 auto;padding:22px 16px 56px}
+h1{font-size:26px;margin:0 0 2px}h2{font-size:17px;margin:0 0 8px}p{margin:6px 0}.muted{color:var(--muted)}a{color:var(--accent)}
+.lead{margin:0 0 12px;max-width:760px}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--card);border:1px solid var(--line);border-left:5px solid #ff5e5b;border-radius:10px;padding:10px 14px;margin:0 0 10px}
+.strip span{flex:1 1 280px}.strip b{display:block}
+a.tip{display:inline-block;background:#ff5e5b;color:#fff;text-decoration:none;font-weight:700;border-radius:8px;padding:8px 16px;white-space:nowrap}
+.need{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:0 0 14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.steps{list-style:none;padding:0;counter-reset:s;margin:0}
+.steps>li{counter-increment:s;position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 46px;margin:0 0 8px}
+.steps>li:before{content:counter(s);position:absolute;left:12px;top:9px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:24px;font-weight:700;font-size:13px}
+a.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border-radius:8px;padding:8px 16px;cursor:grab;margin:4px 0 0}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;margin:6px 0 0;font-size:14px}
+details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:0 14px}summary{cursor:pointer;font-weight:700;padding:10px 0}details[open] summary{border-bottom:1px solid var(--line);margin-bottom:8px}
+dt{font-weight:700;margin-top:8px}dd{margin:2px 0 8px;color:var(--muted)}ul{padding-left:22px;margin:6px 0}li{margin:3px 0}
+button{font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+code,textarea{font:13px/1.4 ui-monospace,Consolas,monospace}textarea{width:100%;height:84px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
 </style></head><body><main>
 <h1>GAC Counter Planner</h1>
-<p class="lead">Predict what an opponent will place on defense, find counters that actually win, and keep your strongest units for your own defense. Every number below comes from real Kyber battles.</p>
-<div class="note">Opponent scouted: <b>K5 Zar, ally code 956368368</b>. Predicted from their most recent 3v3 week.</div>
-<div class="tiles"><div class="tile"><div class="big">17 / 17</div><div class="small">opponent squads covered</div></div><div class="tile"><div class="big">17</div><div class="small">counters above the 75% safe bound</div></div><div class="tile"><div class="big">18%</div><div class="small">of your unit power spent on offense</div></div><div class="tile"><div class="big">4</div><div class="small">Galactic Legends kept free for defense</div></div></div>
+<p class="lead muted">Picks counters for an opponent's predicted defense, then builds your own defense from the units left over. It runs in your browser on your own swgoh.gg login, and nothing is uploaded. <a href="../">See a sample report</a></p>
 
-<h2>How it works</h2>
+<div class="strip" id="support" hidden>
+<span><b>Free to use, built by a guild leader in his spare time.</b><span class="muted">If it saves you time in GAC, a small tip is welcome and never expected.</span></span>
+<a class="tip" id="tip" href="#" target="_blank" rel="noopener">Support this project</a>
+</div>
+
+<div class="need"><b>You need:</b> a swgoh.gg account that can open <b>GAC Insight</b> (Player+, or a guild with Guild Patron) and a desktop browser (Chrome, Edge or Firefox).</div>
+
+<div class="cols">
+<section>
+<h2>Set up (once)</h2>
 <ol class="steps">
-<li><b>Read their defense.</b> The most recent week of their GAC history shows which squads they place, and with which datacrons.</li>
-<li><b>Find counters.</b> GAC Insight win rates, Kyber only, live datacron sets only. Anything under 60% or fewer than 5 battles is thrown out.</li>
-<li><b>Be honest about sample size.</b> Counters are ranked by the safe end of their win rate, so 5 wins out of 5 never beats thousands of battles.</li>
-<li><b>Spend little, keep strong.</b> Each unit is used once, offense picks the cheapest solid counters, and what is left builds your defense.</li>
+<li><b>Sign in at swgoh.gg</b> in your browser.</li>
+<li><b>Show your bookmarks bar:</b> press <b>Ctrl+Shift+B</b> (Cmd+Shift+B on a Mac).</li>
+<li><b>Drag this button up onto the bar</b> and let go: <a class="btn" id="bm" href="#">GAC Planner</a>
+<div class="warn" id="dragnote" hidden><b>Drag it, do not click it.</b> Hold the mouse button on it, move up to the bookmarks bar, and release.</div></li>
 </ol>
+</section>
+<section>
+<h2>Run it</h2>
+<ol class="steps">
+<li><b>Open any swgoh.gg page.</b> It does nothing on a New Tab or any other site.</li>
+<li><b>Click the "GAC Planner" bookmark.</b> It finds you and your opponent by itself: your current round's opponent, or your last one between weeks.</li>
+<li><b>Wait about 20 seconds.</b> The report opens over the page. <b>Download page</b> saves it, and <b>Choose another opponent</b> switches who it plans against.</li>
+</ol>
+</section>
+</div>
 
-<h2>Offense: character squads</h2>
-<div class="scroll"><table><thead><tr><th>Their squad</th><th>Your counter</th><th class="num">Win rate</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody><tr><td><div class="squad">Ahsoka Tano + Ezra Bridger (Exile) + Huyang</div><div class="meta">seen in 3 of 3 rounds <span class="chip old">set 33 expired</span></div></td><td><div class="squad">Sith Eternal Emperor + Darth Bane</div></td><td class="num">95.6%</td><td class="num">1,096</td><td class="num"><span class="badge solid">94.8%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 2/2</span></td></tr><tr><td><div class="squad">Cassian Andor (Undercover) + Vel Sartha + Cinta Kaz</div><div class="meta">seen in 3 of 3 rounds <span class="chip old">set 33 expired</span></div></td><td><div class="squad">Great Mothers + Asajj Ventress (Dark Disciple) + Morgan Elsbeth</div></td><td class="num">100.0%</td><td class="num">7</td><td class="num"><span class="badge solid">81.0%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 3/3, Unaligned Force User 1/3</span></td></tr><tr><td><div class="squad">Finn + Rey (Scavenger) + Zorii Bliss</div><div class="meta">seen in 3 of 3 rounds <span class="chip old">set 33 expired</span></div></td><td><div class="squad">Doctor Aphra + BT-1 + IG-90</div></td><td class="num">92.3%</td><td class="num">13</td><td class="num"><span class="badge solid">77.5%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 3/3</span></td></tr><tr><td><div class="squad">Rey + Cal Kestis + Ben Solo</div><div class="meta">seen in 3 of 3 rounds <span class="chip old">set 33 expired</span></div></td><td><div class="squad">Leia Organa + Captain Drogan + R2-D2</div></td><td class="num">87.6%</td><td class="num">364</td><td class="num"><span class="badge solid">85.3%</span></td><td>set 35, tier 9<br><span class="muted">Light Side 3/3</span></td></tr><tr><td><div class="squad">CT-7567 &quot;Rex&quot; + CT-5555 &quot;Fives&quot; + Captain Rex</div><div class="meta">seen in 2 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Jabba the Hutt</div></td><td class="num">100.0%</td><td class="num">17</td><td class="num"><span class="badge solid">91.2%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 1/1</span></td></tr><tr><td><div class="squad">Jabba the Hutt + Krrsantan + Boushh (Leia Organa)</div><div class="meta">seen in 2 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Kelleran Beq + Jocasta Nu + Temple Guard</div></td><td class="num">90.0%</td><td class="num">20</td><td class="num"><span class="badge solid">78.2%</span></td><td>set 34, tier 9<br><span class="muted">Light Side 3/3, Jedi Vanguard 3/3, Jocasta Nu 1/3</span></td></tr><tr><td><div class="squad">Kelleran Beq + Jocasta Nu + Temple Guard</div><div class="meta">seen in 2 of 3 rounds <span class="chip">set 34</span></div></td><td><div class="squad">Bo-Katan (Mand&#x27;alor) + IG-12 &amp; Grogu + Paz Vizsla</div></td><td class="num">83.6%</td><td class="num">262</td><td class="num"><span class="badge solid">80.5%</span></td><td>set 35, tier 9<br><span class="muted">Light Side 3/3</span></td></tr><tr><td><div class="squad">Lord Vader + CC-1119 &quot;Appo&quot; + CX-2</div><div class="meta">seen in 2 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Lord Vader + CC-1119 &quot;Appo&quot; + CX-2</div></td><td class="num">78.5%</td><td class="num">766</td><td class="num"><span class="badge solid">76.5%</span></td><td>set 34, tier 9<br><span class="muted">Dark Side 3/3, Empire 3/3</span></td></tr><tr><td><div class="squad">Maz Kanata + Quiggold + Kix</div><div class="meta">seen in 2 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Queen Amidala + Master Qui-Gon + Padawan Obi-Wan</div></td><td class="num">99.1%</td><td class="num">114</td><td class="num"><span class="badge solid">97.1%</span></td><td>set 34, tier 9<br><span class="muted">Light Side 3/3</span></td></tr><tr><td><div class="squad">Pirate King Hondo Ohnaka + Vane + Captain Silvo</div><div class="meta">seen in 2 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Cere Junda + Cal Kestis + Taron Malicos</div></td><td class="num">81.8%</td><td class="num">121</td><td class="num"><span class="badge solid">76.9%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 1/3, Unaligned Force User 3/3, Taron Malicos 1/3</span></td></tr><tr><td><div class="squad">Boss Nass + Jar Jar Binks + Gungan Phalanx</div><div class="meta">seen in 1 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Darth Traya + Darth Nihilus + Savage Opress</div></td><td class="num">99.2%</td><td class="num">5,848</td><td class="num"><span class="badge solid">99.0%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 3/3</span></td></tr><tr><td><div class="squad">Emperor Palpatine + Darth Vader (Duel&#x27;s End) + Mara Jade, The Emperor&#x27;s Hand</div><div class="meta">seen in 1 of 3 rounds <span class="chip">set 34</span></div></td><td><div class="squad">Pirate King Hondo Ohnaka</div></td><td class="num">97.4%</td><td class="num">38</td><td class="num"><span class="badge solid">91.6%</span></td><td>set 34, tier 9<br><span class="muted">Dark Side 1/1</span></td></tr><tr><td><div class="squad">Jedi Master Mace Windu + Aayla Secura + Depa Billaba</div><div class="meta">seen in 1 of 3 rounds <span class="chip old">set 32 expired</span></div></td><td><div class="squad">Darth Malgus + Darth Malak</div></td><td class="num">96.0%</td><td class="num">25</td><td class="num"><span class="badge solid">87.5%</span></td><td>set 35, tier 9<br><span class="muted">Dark Side 2/2</span></td></tr><tr><td><div class="squad">Qui-Gon Jinn + Jedi Knight Anakin + Ki-Adi-Mundi</div><div class="meta">seen in 1 of 3 rounds <span class="chip old">set 33 expired</span></div></td><td><div class="squad">Jedi Master Luke Skywalker</div></td><td class="num">100.0%</td><td class="num">275</td><td class="num"><span class="badge solid">99.4%</span></td><td>set 36, tier 9<br><span class="muted">Light Side 1/1, Jedi 1/1</span></td></tr></tbody></table></div>
-<p class="muted">Win rate and battles are from Insight. "Safe bound" is the lower end of that win rate given the number of battles; solid means at least 75%. A set marked "expired" is a datacron set that no longer applies this season, so that squad is judged only on how it performs now.</p>
+<details><summary>Reading the report</summary>
+<dl>
+<dt>Attack with</dt><dd>What the opponent is expected to place (with the datacron perks they usually put on it), and the squad of yours that beats it. A counter is only offered if it wins at least 75% of the time in Kyber and its safe bound is at least 60%. Galactic Legends are used on offense only for squads nothing else can counter, and meta capital ships (Profundity, Executor, Leviathan) only when no other fleet counters.</dd>
+<dt>Win rate, Battles, Safe bound</dt><dd>How often the counter wins in Kyber, over how many battles, and the cautious version after allowing for small samples. Strong means the safe bound is 75% or more, Acceptable means 60% to 75%.</dd>
+<dt>Use this cron</dt><dd>Which of your datacrons to put on that squad, what perks it has and lacks, and the ideal perks with what they were measured to do. Each cron is used once.</dd>
+<dt>Expired (red tag)</dt><dd>Their squad was built around a datacron set that no longer applies, so judge it by its units.</dd>
+<dt>Set on defense</dt><dd>Squads from the units offense did not use: 15 character squads on a 3v3 board, 11 on 5v5, and 3 fleets. "Hold" is how often attackers lose to them. The report also shows where every Galactic Legend went, and none sits idle.</dd>
+<dt>Meta defenses you can field</dt><dd>swgoh.gg's best-holding squads that you can build from what is left, with their Kyber hold. Offense avoids their units where it can.</dd>
+<dt>Copy for Discord</dt><dd>A button in the top bar of the report. It turns the plan into plain text, split into messages that each fit Discord's 2000 character limit, with a copy button for each.</dd>
+</dl></details>
 
-<h2>Offense: fleets</h2>
-<div class="scroll"><table><thead><tr><th>Their squad</th><th>Your counter</th><th class="num">Win rate</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody><tr><td><div class="squad">Executrix + Emperor&#x27;s Shuttle + Scythe + TIE Advanced x1 + Imperial TIE Bomber + TIE Defender + Imperial TIE Fighter + TIE/IN Interceptor Prototype</div><div class="meta">seen in 2 of 3 rounds </div></td><td><div class="squad">Leviathan + Fury-class Interceptor + B-28 Extinction-class Bomber + TIE Dagger + Scimitar + Mark VI Interceptor</div></td><td class="num">100.0%</td><td class="num">329</td><td class="num"><span class="badge solid">99.5%</span></td><td><span class="muted">n/a</span></td></tr><tr><td><div class="squad">Home One + Rebel B-wing + Raven&#x27;s Claw + Cassian&#x27;s U-wing + Bistan&#x27;s U-wing + Wedge Antilles&#x27;s X-wing + Biggs Darklighter&#x27;s X-wing</div><div class="meta">seen in 2 of 3 rounds </div></td><td><div class="squad">Malevolence + Sun Fac&#x27;s Geonosian Starfighter + Hyena Bomber + Vulture Droid + Geonosian Soldier&#x27;s Starfighter + Geonosian Spy&#x27;s Starfighter + Imperial TIE Bomber</div></td><td class="num">78.3%</td><td class="num">842</td><td class="num"><span class="badge solid">76.4%</span></td><td><span class="muted">n/a</span></td></tr><tr><td><div class="squad">Malevolence + Sun Fac&#x27;s Geonosian Starfighter + Geonosian Soldier&#x27;s Starfighter + Geonosian Spy&#x27;s Starfighter + Hyena Bomber + Vulture Droid</div><div class="meta">seen in 2 of 3 rounds </div></td><td><div class="squad">Negotiator + Anakin&#x27;s Eta-2 Starfighter + Marauder + BTL-B Y-wing Starfighter + Plo Koon&#x27;s Jedi Starfighter + Ahsoka Tano&#x27;s Jedi Starfighter</div></td><td class="num">99.8%</td><td class="num">1,411</td><td class="num"><span class="badge solid">99.6%</span></td><td><span class="muted">n/a</span></td></tr></tbody></table></div>
-<p class="muted">Fleet reinforcements vary from 1 to 5, so matchups are pooled and weighted by how closely they match what the opponent placed.</p>
-<h2>Dropped from the plan</h2><p class="muted">These squads are rare under live datacron sets, so they most likely only worked with an expired one:</p><ul class="tight"><li>Ugnaught + Ezra Bridger + Hondo Ohnaka <span class="muted">(55 battles under live datacron sets)</span></li></ul>
+<details><summary>Helping a guildmate (run it for them)</summary>
+<p>A player's roster, datacrons and bracket are public swgoh.gg data, so you can run a plan for a guildmate using your own login. Drag this second button to your bookmarks bar: <a class="btn" id="bm2" href="#">GAC Planner: for someone else</a></p>
+<p>It asks for their name (anyone in your guild) or their ally code, then shows their bracket so you can pick their opponent by number or by the name as it shows in the game. The report is for them, so share it only with them. Each report is about 50 requests, so it asks you to confirm after 5 in a day. After any run you can also press <b>Run for someone else</b> in the report's top bar.</p>
+</details>
 
-<h2>Your defense, from what is left</h2>
-<div class="note">After offense, <b>307 characters and 51 ships</b> are free. Galactic Legends still available for defense: <b>Ahsoka Tano, Jedi Master Kenobi, Rey, Supreme Leader Kylo Ren</b>. "Hold" is how often attackers lose to that squad in Kyber.</div>
-<div class="scroll"><table><thead><tr><th>Squad</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th><th>Datacron</th></tr></thead><tbody><tr><td><div class="squad">Supreme Leader Kylo Ren + Rey (Dark Side Vision) + General Hux</div></td><td class="num">34.1%</td><td class="num">308</td><td class="num">30.7%</td><td>set 36, tier 3<br><span class="muted">Dark Side 3/3</span></td></tr><tr><td><div class="squad">General Syndulla + Ezra Bridger (Exile) + Huyang</div></td><td class="num">34.0%</td><td class="num">206</td><td class="num">29.9%</td><td><span class="muted">none left</span></td></tr><tr><td><div class="squad">The Stranger + Maul + Starkiller</div></td><td class="num">25.9%</td><td class="num">1,373</td><td class="num">24.4%</td><td>set 35, tier 9<br><span class="muted">Dark Side 3/3, Unaligned Force User 2/3, Maul 1/3</span></td></tr><tr><td><div class="squad">Grand Admiral Thrawn + Royal Guard + Darth Vader (Duel&#x27;s End)</div></td><td class="num">28.6%</td><td class="num">147</td><td class="num">24.1%</td><td>set 34, tier 9<br><span class="muted">Dark Side 3/3, Empire 3/3, Grand Admiral Thrawn 1/3</span></td></tr><tr><td><div class="squad">Rey + Barriss Offee + Ben Solo</div></td><td class="num">24.0%</td><td class="num">1,540</td><td class="num">22.6%</td><td>set 34, tier 9<br><span class="muted">Light Side 3/3, Jedi Vanguard 1/3, Barriss Offee 1/3</span></td></tr><tr><td><div class="squad">Captain Ithano + Hondo Ohnaka + Kix</div></td><td class="num">27.3%</td><td class="num">55</td><td class="num">20.3%</td><td><span class="muted">none left</span></td></tr><tr><td><div class="squad">Iden Versio + Magmatrooper + Scout Trooper</div></td><td class="num">24.7%</td><td class="num">93</td><td class="num">19.5%</td><td>set 34, tier 9<br><span class="muted">Dark Side 3/3, Empire 3/3</span></td></tr><tr><td><div class="squad">Mon Mothma + Kyle Katarn + Luthen Rael</div></td><td class="num">17.1%</td><td class="num">5,180</td><td class="num">16.4%</td><td>set 34, tier 9<br><span class="muted">Light Side 3/3</span></td></tr><tr><td><div class="squad">Jedi Master Kenobi + Commander Ahsoka Tano + General Kenobi</div></td><td class="num">16.2%</td><td class="num">6,260</td><td class="num">15.6%</td><td>set 36, tier 0<br><span class="muted">stats only</span></td></tr><tr><td><div class="squad">Satele Shan + Bastila Shan + Jedi Knight Revan</div></td><td class="num">15.1%</td><td class="num">6,283</td><td class="num">14.5%</td><td><span class="muted">none left</span></td></tr><tr><td><div class="squad">Darth Revan + Mission Vao + Zaalbar</div></td><td class="num">14.8%</td><td class="num">5,258</td><td class="num">14.1%</td><td><span class="muted">none left</span></td></tr><tr><td><div class="squad">Dark Trooper Moff Gideon + Death Trooper (Peridea) + Night Trooper</div></td><td class="num">15.4%</td><td class="num">648</td><td class="num">13.7%</td><td>set 36, tier 3<br><span class="muted">Dark Side 3/3</span></td></tr><tr><td><div class="squad">Hunter + Echo + Tech</div></td><td class="num">14.9%</td><td class="num">1,198</td><td class="num">13.7%</td><td>set 35, tier 9<br><span class="muted">Light Side 3/3, Clone Trooper 3/3</span></td></tr><tr><td><div class="squad">General Skywalker + CT-5555 &quot;Fives&quot; + CT-7567 &quot;Rex&quot;</div></td><td class="num">14.2%</td><td class="num">3,866</td><td class="num">13.5%</td><td><span class="muted">none left</span></td></tr><tr><td><div class="squad">Baylan Skoll + Marrok + Shin Hati</div></td><td class="num">13.4%</td><td class="num">18,253</td><td class="num">13.1%</td><td><span class="muted">none left</span></td></tr></tbody></table></div>
-<h2>Defense fleets</h2>
-<div class="scroll"><table><thead><tr><th>Fleet</th><th class="num">Hold</th><th class="num">Battles</th><th class="num">Safe bound</th></tr></thead><tbody><tr><td><div class="squad">Executor + Punishing One + Razor Crest + Xanadu Blood + Hound&#x27;s Tooth + IG-2000 + Slave I</div></td><td class="num">11.1%</td><td class="num">22,759</td><td class="num">10.9%</td></tr><tr><td><div class="squad">Profundity + Han&#x27;s Millennium Falcon + Outrider + Rebel Y-wing + Ghost + Phantom II + Rogue One</div></td><td class="num">17.3%</td><td class="num">6,667</td><td class="num">16.7%</td></tr><tr><td><div class="squad">Home One + Raven&#x27;s Claw + Bistan&#x27;s U-wing + Biggs Darklighter&#x27;s X-wing + Rebel B-wing + Cassian&#x27;s U-wing + Wedge Antilles&#x27;s X-wing</div></td><td class="num">6.8%</td><td class="num">19,039</td><td class="num">6.6%</td></tr></tbody></table></div>
+<details><summary>If something goes wrong</summary>
+<dl>
+<dt>Nothing happens, or "Open a swgoh.gg page first"</dt><dd>You are not on a swgoh.gg page. Click the swgoh.gg tab, then the bookmark.</dd>
+<dt>swgoh.gg refused the request</dt><dd>You are not signed in, or your account cannot open GAC Insight. Sign in and open GAC Insight once to check.</dd>
+<dt>Ally code not found, or no recent week with data</dt><dd>That opponent has no GAC history at this squad size, or the code is wrong. Use Choose another opponent.</dd>
+<dt>It asks me questions</dt><dd>Either your bookmark is an older one (delete it and drag the button again), or your swgoh.gg account is not linked to a player (type your ally code once and it remembers).</dd>
+<dt>Still stuck</dt><dd>Use the console method below.</dd>
+</dl></details>
 
-<h2>Built-in safeguards, and what it cannot do yet</h2>
-<ul class="tight">
-<li>Expired datacron sets are always dropped, from the counters and from the opponent's squads. Week one of a new season has thin data, and the plan shows how thin.</li>
-<li>One datacron per squad, never reused. Each is matched to the squads whose units its abilities target.</li>
-<li>Not handled yet: 5v5, and predicting a brand-new opponent with no history.</li>
-<li>Datacron fit is a simple score of how many of a squad's units each ability targets, not a full simulation.</li>
-</ul>
-<footer>Generated 2026-11-01 from the most recent week of the opponent's history. Built from public GAC data; no guild member data.</footer>
-</main></body></html>
+<details><summary>Console method (no bookmark needed)</summary>
+<p class="muted">On any swgoh.gg page press <b>F12</b>, open <b>Console</b>, paste this, and press Enter:</p>
+<textarea id="code" readonly></textarea>
+<p><button id="copy">Copy</button> <span class="muted" id="copied"></span></p>
+</details>
+
+<details><summary>On a phone</summary>
+<p>Not built for phones: bookmarks behave differently, and it will not run in the browsers inside apps like Discord, Reddit or Facebook. The easy way is to run it on a computer, press <b>Download page</b>, and send the file to your phone, where the report reads well. (Chrome on Android and Safari on iPhone can work with a saved bookmark whose address is the console code.)</p>
+</details>
+
+<details><summary>Good to know</summary>
+<ul class="muted">
+<li>It needs the opponent to have GAC history at this squad size. In a new season's first week the data is thin, which the safe bound shows, and balance changes made after the data was recorded are not reflected.</li>
+<li>3v3 and fleets are tested; 5v5 is not yet.</li>
+<li>It uses swgoh.gg's own data, which can change without notice, and one run makes about 70 requests, so please do not run it over and over.</li>
+</ul></details>
+</main>
+<script>
+(function(){
+  var SRC='https://nrbarnard83.github.io/gac-demo/gac.js';  // where gac.js is hosted
+  var SUPPORT='https://ko-fi.com/croder';  // tip jar link; the support strip stays hidden if this is empty
+  if(SUPPORT){var t=document.getElementById('tip');t.href=SUPPORT;document.getElementById('support').hidden=false;}
+  var body="(async()=>{if(!location.hostname.endsWith('swgoh.gg')){alert('Open a swgoh.gg page first, then click again.');return}"
+   +"if(!window.GAC){await new Promise(function(ok,no){var s=document.createElement('script');s.src='"+SRC+"?'+Date.now();s.onload=ok;s.onerror=no;document.head.append(s)})}"
+   +"GAC.ask()})()";  // all the asking happens in gac.js, so improvements never need a new bookmark
+  var bm=document.getElementById('bm');
+  bm.href='javascript:'+body;
+  var bm2=document.getElementById('bm2');
+  if(bm2){bm2.href='javascript:'+body.replace('GAC.ask()','GAC.askFor()');
+    bm2.addEventListener('click',function(e){e.preventDefault();alert('Drag this button up onto your bookmarks bar, do not click it.');});}
+  bm.addEventListener('click',function(e){  // clicking here does nothing useful: it has to be dragged to the bookmarks bar
+    e.preventDefault();
+    document.getElementById('dragnote').hidden=false;});
+  var ta=document.getElementById('code');ta.value=body;
+  document.getElementById('copy').onclick=function(){
+    var ok=function(){document.getElementById('copied').textContent='Copied'};
+    var fail=function(){ta.select();document.getElementById('copied').textContent='Press Ctrl+C to copy'};
+    if(navigator.clipboard){navigator.clipboard.writeText(body).then(ok,fail)}else{fail()}};
+})();
+</script></body></html>

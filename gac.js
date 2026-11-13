@@ -200,14 +200,17 @@
     }
     evs.sort((a, b) => +b.slice(1) - +a.slice(1));
     const charSquad = b => !st.isFleet(b.lead);
-    for (const ev of evs.slice(0, 10)) {
+    // Only the single latest week is used: older weeks are stale (other datacron sets, other meta). A defense nobody attacked never shows
+    // up in the history, so one week can show only part of their board, which the report says plainly.
+    const board = new Map(), used = [];
+    const charCount = () => [...board.values()].filter(e => !st.isFleet(e.squad[0])).length;
+    for (const ev of evs.slice(0, 12)) {
+      if (used.length) break;
       const probe = await G.parseRound(base, ev, 2);
       if (!probe.battles.some(b => charSquad(b) && b.units.length === c.squadSize)) continue;  // wrong squad size (3v3 vs 5v5) or empty
       say('Using the ' + new Date(+ev.slice(1)).toISOString().slice(0, 10) + ' week (' + c.squadSize + 'v' + c.squadSize + ')');
       const rounds = [];
       for (const rd of [1, 2, 3]) rounds.push(rd === 2 ? probe : await G.parseRound(base, ev, rd));
-      st.event = ev;
-      const board = new Map();
       for (const r of rounds) for (const b of r.battles) {
         let key;
         if (st.isFleet(b.lead)) key = [b.lead, ...b.units.slice(1).sort()];
@@ -215,7 +218,7 @@
         else continue;
         const k = key.join('|');
         const e = board.get(k) || { squad: key, rounds: new Set(), sets: {}, crons: {} };
-        e.rounds.add(r.round);
+        e.rounds.add(ev + ':' + r.round);
         if (b.dc) {
           e.sets[b.dc.set] = (e.sets[b.dc.set] || 0) + 1;
           const ck = b.dc.perks.map(p => p.id).join(','), cc = e.crons[ck] || { n: 0, perks: b.dc.perks };
@@ -223,10 +226,26 @@
         }
         board.set(k, e);
       }
+      used.push(ev);
+    }
+    if (used.length) {
+      st.event = used[0];
       // the datacron perks they most often put on each squad, so you can see what you are facing
       st.board = [...board.values()].map(e => ({ squad: e.squad, seen: e.rounds.size, sets: Object.keys(e.sets).map(Number).sort((a, b) => a - b),
         perks: (Object.values(e.crons).sort((a, b) => b.n - a.n)[0] || { perks: [] }).perks }));
-      return { owner: st.owner, event: ev, squads: st.board.length };
+      // is that week from the current season? Older seasons had other datacron sets and a different meta, so they say little about now.
+      let stale = false, seasonName = '';
+      try {
+        const cfg = await dataOf('/api/v1/gac/config-data/'), t = s => Date.parse(String(s).replace(' ', 'T'));
+        let latest = null;
+        for (const sn of (cfg.seasons || [])) if (+sn.squadSize === c.squadSize) {
+          const starts = (sn.events || []).map(e => t(e.startTime)).filter(x => x <= Date.now());
+          if (starts.length && (!latest || Math.min(...starts) > latest.start)) latest = { start: Math.min(...starts), name: sn.name };
+        }
+        if (latest) { seasonName = latest.name; stale = +used[0].slice(1) < latest.start - 864e5; }
+      } catch (e) { /* no calendar: no warning */ }
+      st.boardInfo = { weeks: 1, rounds: 3, chars: charCount(), fleets: st.board.length - charCount(), expected: c.dChars, date: new Date(+used[0].slice(1)).toISOString().slice(0, 10), stale, seasonName };
+      return { owner: st.owner, event: used[0], weeks: 1, squads: st.board.length, stale };
     }
     throw new Error('No recent ' + c.squadSize + 'v' + c.squadSize + ' week with data found for that opponent');
   };
@@ -602,7 +621,7 @@
     const offRows = fleet => st.boardKept.filter(b => st.isFleet(b.squad[0]) === fleet).sort((a, b) => (b.seen - a.seen) || nm(a.squad[0]).localeCompare(nm(b.squad[0]))).map(b => {
       const cd = st.pick.get(b);
       const sets = b.sets.map(s => '<span class="chip' + (st.live.has(s) ? '' : ' old') + '">set ' + s + (st.live.has(s) ? '' : ' expired') + '</span>').join('');
-      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of 3 rounds ' + sets + '</div>' + theirs(b.perks);
+      const left = '<div class="squad">' + sq(b.squad) + '</div><div class="meta">seen in ' + b.seen + ' of ' + (st.boardInfo ? st.boardInfo.rounds : 3) + ' rounds ' + sets + '</div>' + theirs(b.perks);
       if (!cd) return '<tr><td>' + left + '</td><td colspan="' + (fleet ? 4 : 5) + '" class="bad">No qualifying counter: nothing you can field wins 75% of the time with a 60% safe bound</td></tr>';
       const flags = (cd.second ? '<span class="chip">Galactic Legend: nothing else qualifies</span>' : '')
         + (fleet && cd.meta ? '<span class="chip">uses a meta capital ship: nothing else qualifies</span>' : '')
@@ -620,9 +639,14 @@
     const glLine = (what, names) => '<li><b>' + what + ':</b> ' + (names.length ? esc(names.join(', ')) : 'none') + '</li>';
     return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GAC Counter Planner</title><style>' + CSS + '</style></head><body><main>'
       + '<h1>GAC Counter Planner</h1><p class="lead">Predicted from the most recent ' + c.squadSize + 'v' + c.squadSize + ' week. Kyber battles, live datacron sets only. A counter is offered only if it wins at least 75% of the time with a safe bound of at least 60%.</p>'
+      + (c.forName ? '<div class="note">Report for <b>' + esc(c.forName) + '</b>, planned from their roster and datacrons.</div>' : '')
       + '<div class="note">Opponent scouted: <b>' + esc(st.owner) + '</b>, ally code ' + esc(c.opp)
       + (c.auto ? (c.auto.stale ? ' (no GAC week is live, so this is the last opponent you faced: ' + esc(c.auto.season) + ', round ' + c.auto.round + ')'
-        : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '') + '</div>'
+        : ' (your round ' + c.auto.round + ' opponent, picked automatically from your GAC history)') : '')
+      + (st.boardInfo ? (st.boardInfo.stale ? '<br><b class="bad">Out of date:</b> their latest ' + c.squadSize + 'v' + c.squadSize + ' week was ' + st.boardInfo.date + ', before ' + esc(st.boardInfo.seasonName) + ', so these squads come from an older season and may not reflect what they set now.' : '')
+        + '<br><span class="muted">Built from their latest ' + c.squadSize + 'v' + c.squadSize + ' week (' + st.boardInfo.date + '). We saw ' + st.boardInfo.chars + ' of the ~' + st.boardInfo.expected
+        + ' character squads on a ' + c.squadSize + 'v' + c.squadSize + ' board and ' + st.boardInfo.fleets + ' of 3 fleets' + (st.boardInfo.chars < st.boardInfo.expected ? ': a defense nobody attacked never shows up in the history, so expect squads that are not listed here.' : '.') + '</span>' : '')
+      + '</div>'
       + '<div class="tiles">' + tile(covered + ' / ' + total, 'opponent squads you can counter') + tile(strong, 'Strong counters (safe bound 75%+)') + tile(acceptable, 'Acceptable counters (safe bound 60% to 75%)') + '</div>'
       + '<h2>Attack with: character squads</h2><div class="scroll">' + head(false) + offRows(false) + '</tbody></table></div>'
       + '<h2>Attack with: fleets</h2><div class="scroll">' + head(true) + offRows(true) + '</tbody></table></div>' + dropped
@@ -640,6 +664,64 @@
       + (G.secs ? 'Took ' + G.secs + ' seconds and ' + G.calls + ' requests' + (G.cached ? ' (' + G.cached + ' answers reused from the last 12 hours)' : '') + '. ' : '') + (st.timedOut ? 'The counter search hit its time limit, so a slightly better plan may exist.' : '') + '</footer></main></body></html>';
   };
 
+  // ---------------------------------------------------------------- the plan as plain text for Discord
+  // Discord caps a message at 2000 characters, so the text comes back as a few messages that each fit, never split mid-line.
+  G.discordChunks = () => {
+    const c = G.cfg, st = G.st, nm = st.nm, join = us => us.map(nm).join(' + ');
+    const cron = r => {
+      if (!r || r.none) return '';
+      if (r.cron && (r.gain > 0 || !r.fact)) return ' | cron: set ' + r.cron.set_id + ' t' + r.cron.tier;
+      if (r.fact && r.fact.best && r.fact.best.length) return ' | cron wanted: ' + r.fact.best.map(id => PERKS[id] || id).join(' + ');
+      return '';
+    };
+    const pc = x => Math.round(x * 100) + '%';
+    const sections = [];
+    const add = (title, lines) => { if (lines.length) sections.push({ title, lines }); };
+    const ordered = fleet => st.boardKept.filter(b => st.isFleet(b.squad[0]) === fleet).sort((a, b) => (b.seen - a.seen) || nm(a.squad[0]).localeCompare(nm(b.squad[0])));
+    const atk = fleet => ordered(fleet).map(b => {
+      const cd = st.pick.get(b);
+      if (!cd) return '- ' + join(b.squad) + ' -> NO qualifying counter';
+      return '- ' + join(b.squad) + ' -> **' + join(cd.att) + '** ' + pc(cd.p) + (cd.tier === 'strong' ? ' strong' : ' ok') + (cd.second ? ' [GL: nothing else qualifies]' : '')
+        + (fleet && cd.meta ? ' [meta ship: nothing else qualifies]' : '') + (fleet ? '' : cron(st.dcOff.get(b)));
+    });
+    add('**ATTACK, characters** (their squad -> your counter, win rate)', atk(false));
+    add('**ATTACK, fleets**', atk(true));
+    add('**DEFENSE, characters** (set these, hold rate)', st.defChars.map((d, i) => '- ' + join(d.units) + ' | holds ' + pc(d.hold) + cron(st.dcDef[i])));
+    add('**DEFENSE, fleets**', st.defFleets.map(d => '- ' + join(d.units) + ' | holds ' + pc(d.hold)));
+    add('**Galactic Legends**', ['- offense: ' + (st.glOff.join(', ') || 'none'), '- defense: ' + (st.glDef.join(', ') || 'none'), '- idle: ' + (st.glIdle.join(', ') || 'none')]);
+    const head = '**GAC plan ' + (c.forName ? 'for ' + c.forName + ' ' : '') + 'vs ' + st.owner + '** (' + c.squadSize + 'v' + c.squadSize + ', Kyber, live datacron sets). A counter needs a 75%+ win rate and a 60%+ safe bound.'
+      + (st.boardInfo ? (st.boardInfo.stale ? ' **OUT OF DATE: their latest week was ' + st.boardInfo.date + ', from before ' + st.boardInfo.seasonName + '.**' : '') + ' Based on ' + st.boardInfo.chars + ' of ~' + st.boardInfo.expected + ' of their squads and ' + st.boardInfo.fleets + ' of 3 fleets seen in their latest week' + (st.boardInfo.chars < st.boardInfo.expected ? ' (a defense nobody attacked never shows up, so expect others).' : '.') : '');
+    const chunks = [];
+    let cur = head;
+    const push = line => { if (cur.length + 1 + line.length > 1900) { chunks.push(cur); cur = ''; } cur += (cur ? '\n' : '') + line; };
+    for (const s of sections) {
+      if (cur.length + 1 + s.title.length + (s.lines[0] || '').length > 1900) { chunks.push(cur); cur = ''; }
+      push(s.title);
+      for (const l of s.lines) { if (cur.length + 1 + l.length > 1900) { chunks.push(cur); cur = s.title + ' (cont.)'; } push(l); }
+    }
+    if (cur) chunks.push(cur);
+    // numbered, so nobody pastes message 1 and thinks that is everything (the fleets and the GL summary come last)
+    return chunks.length > 1 ? chunks.map((t, i) => '[' + (i + 1) + '/' + chunks.length + '] ' + t + (i === chunks.length - 1 ? '' : '\n(continued in the next message)')) : chunks;
+  };
+  const discordPanel = w => {
+    const old = w.querySelector('[data-discord]'); if (old) { old.remove(); return; }
+    const chunks = G.discordChunks();
+    const p = document.createElement('div'); p.setAttribute('data-discord', '1');
+    p.style.cssText = 'position:absolute;top:46px;left:0;right:0;bottom:0;background:#111;color:#eee;overflow:auto;padding:12px 16px;font:14px system-ui;z-index:2';
+    const intro = document.createElement('div'); intro.style.cssText = 'margin-bottom:10px';
+    intro.textContent = 'Paste these into Discord in order: ' + chunks.length + ' message' + (chunks.length === 1 ? '' : 's') + ', each under the 2000 character limit.';
+    p.append(intro);
+    chunks.forEach((t, i) => {
+      const box = document.createElement('div'); box.style.cssText = 'margin:0 0 14px';
+      const label = document.createElement('div'); label.textContent = 'Message ' + (i + 1) + ' of ' + chunks.length + ' (' + t.length + ' characters)';
+      const ta = document.createElement('textarea'); ta.readOnly = true; ta.value = t; ta.rows = 10; ta.style.cssText = 'width:100%;background:#1b1b1b;color:#eee;border:1px solid #444;border-radius:6px;padding:8px;font:13px ui-monospace,Consolas,monospace';
+      const b = document.createElement('button'); b.textContent = 'Copy message ' + (i + 1); b.style.cssText = 'margin-top:6px;padding:6px 12px;font:14px system-ui;cursor:pointer';
+      b.onclick = () => { const done = () => { b.textContent = 'Copied'; }; try { navigator.clipboard.writeText(t).then(done, () => { ta.select(); b.textContent = 'Press Ctrl+C'; }); } catch (e) { ta.select(); b.textContent = 'Press Ctrl+C'; } };
+      box.append(label, ta, b); p.append(box);
+    });
+    w.append(p);
+  };
+
   // ---------------------------------------------------------------- full run with a progress box and a report overlay
   const overlay = html => {
     const old = document.getElementById('gac-overlay'); if (old) old.remove();
@@ -655,6 +737,9 @@
       bar.append(a);
     }
     if (G.cfg && G.cfg.auto) bar.append(mk('Choose another opponent', () => { w.remove(); G.ask({ manual: true }); }));
+    if (G.cfg && G.cfg.forName) bar.append(mk('Different opponent for ' + G.cfg.forName, () => { const t = G.cfg.forTarget; w.remove(); G.askFor({ target: t }); }));
+    bar.append(mk('Run for someone else', () => { w.remove(); G.askFor(); }));
+    if (G.st && G.st.pick) bar.append(mk('Copy for Discord', () => discordPanel(w)));
     bar.append(mk('Download page', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = 'gac-plan.html'; a.click(); }), mk('Close', () => w.remove()));
     // sandboxed with no permissions: the report is plain text and styling, so it never needs scripts or access to the swgoh.gg page
     const f = document.createElement('iframe'); f.setAttribute('sandbox', ''); f.srcdoc = html; f.style.cssText = 'flex:1;border:0;background:#fff';
@@ -666,7 +751,7 @@
   G.identity = async () => {
     try {
       const d = await dataOf('/api/users/identity/');
-      return d.authenticated ? (d.players || []).map(p => ({ name: p.name, ally: String(p.allyCode) })) : [];
+      return d.authenticated ? (d.players || []).map(p => ({ name: p.name, ally: String(p.allyCode), guild: p.guild && p.guild.id })) : [];
     } catch (e) { return []; }
   };
   const mem = {
@@ -795,6 +880,62 @@
     if (!opp) return;
     mem.set('me', clean(me)); mem.set('opp', opp); mem.set('size', String(size));
     return G.run({ me: clean(me), opp, squadSize: size });
+  };
+
+  // ---------------------------------------------------------------- run it for someone else: a guildmate you are helping
+  // Their roster, datacrons and bracket are public swgoh.gg data; only the Insight counters use your own login. You give their name or
+  // ally code, then pick their opponent from their bracket by name or number (they read the name off the in-game matchup screen).
+  const norm2 = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const pickFrom = (list, text, label) => {  // a number, a name or part of one: returns one item, or null
+    const t = String(text).trim(); if (!t) return null;
+    const n = +t; if (String(n) === t && n >= 1 && n <= list.length) return list[n - 1];
+    const k = norm2(t);
+    let hits = list.filter(x => norm2(x.name) === k);
+    if (!hits.length) hits = list.filter(x => norm2(x.name).startsWith(k));
+    if (!hits.length) hits = list.filter(x => norm2(x.name).includes(k));
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) {
+      const p = prompt('More than one ' + label + ' matches "' + t + '". Type a number:\n' + hits.map((x, i) => (i + 1) + ': ' + x.name).join('\n'), '1');
+      return p === null ? null : (hits[+p - 1] || null);
+    }
+    return null;
+  };
+  const SOFT_LIMIT = 5;  // reports for others per 24 hours before it asks you to confirm: each one is about 50 requests to swgoh.gg
+  const recentRuns = () => { try { return JSON.parse(localStorage.getItem('gac.others') || '[]').filter(t => Date.now() - t < 864e5); } catch (e) { return []; } };
+  G.askFor = async (opts = {}) => {
+    const clean = s => String(s).replace(/[^0-9]/g, '');
+    const who = await G.identity();
+    let target = opts.target || null;
+    if (!target) {
+      const guildId = who.length && who[0].guild;
+      let members = [];
+      if (guildId) { try { const g = await dataOf('/api/guild-profile/' + guildId + '/'); members = (g.members || []).map(m => ({ ally: String(m.ally_code), name: m.player_name })); } catch (e) { members = []; } }
+      const ans = prompt('Who is the report for?\nType their name' + (members.length ? ' (anyone in your guild)' : '') + ' or their ally code.', mem.get('for'));
+      if (ans === null || !String(ans).trim()) return;
+      if (clean(ans).length === 9) target = { ally: clean(ans), name: 'ally code ' + clean(ans) };
+      else { target = pickFrom(members, ans, 'guild member'); if (!target) { alert('Could not find "' + ans + '" in your guild. Try their ally code instead.'); return; } }
+    }
+    mem.set('for', target.name);
+    const det = await G.detectSquadSize();
+    let size = det ? det.size : (+mem.get('size') || 3);
+    const cur = await G.currentOpponents(target.ally);
+    const list = cur ? cur.opps.concat(cur.others) : [];
+    const sizeLine = 'Planning for ' + size + 'v' + size + (det ? ' (' + det.why + ')' : '') + '. To use the other size, add a space and 3 or 5 after your answer.';
+    let pick;
+    if (list.length) {
+      const lines = list.map((o, i) => (i + 1) + ': ' + o.name + (o.guild ? ' (' + o.guild + ')' : '') + (o.round ? ', round ' + o.round : ''));
+      pick = prompt('Report for ' + target.name + '. Season ' + cur.season + ' week ' + cur.week + '.\nWho is their opponent? Type a number, or the name as it shows in the game.\n' + sizeLine + '\n\n' + lines.join('\n'), '');
+    } else pick = prompt('Report for ' + target.name + '. Their opponent\'s ally code?\n' + sizeLine, '');
+    if (pick === null || !String(pick).trim()) return;
+    const parts = String(pick).trim().split(/\s+/);
+    if (parts[parts.length - 1] === '3' || parts[parts.length - 1] === '5') { size = +parts.pop(); }
+    const text = parts.join(' ');
+    let opp = clean(text).length === 9 ? { ally: clean(text), name: 'ally code ' + clean(text) } : pickFrom(list, text, 'player');
+    if (!opp) { alert('Could not match "' + text + '" to their bracket. Check the spelling, or type the opponent\'s ally code.'); return; }
+    const runs = recentRuns();
+    if (runs.length >= SOFT_LIMIT && !confirm('You have run ' + runs.length + ' reports for other players in the last 24 hours. Each one makes about 50 requests to swgoh.gg under your login. Run another?')) return;
+    try { localStorage.setItem('gac.others', JSON.stringify(runs.concat([Date.now()]))); } catch (e) { /* not remembered: no soft limit */ }
+    return G.run({ me: target.ally, opp: opp.ally, squadSize: size, forName: target.name, forTarget: target });
   };
 
   G.run = async cfg => {
